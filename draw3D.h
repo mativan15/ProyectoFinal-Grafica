@@ -23,12 +23,115 @@
 
 #include "draw2D.h"
 
+#include <array>
+#include <fstream>
+#include <limits>
+#include <sstream>
+
+struct MeshVertex {
+    LightVec3 position {0.0f, 0.0f, 0.0f};
+    Color color {1.0f, 1.0f, 1.0f, 1.0f};
+    LightVec3 normal {0.0f, 0.0f, 1.0f};
+    float u = 0.0f;
+    float v = 0.0f;
+    LightVec3 tangent {1.0f, 0.0f, 0.0f};
+};
+
+inline LightVec3 makeVec3(float x, float y, float z) { return {x, y, z}; }
+
+inline LightVec3 addVec3(const LightVec3& a, const LightVec3& b) {
+    return {a.x + b.x, a.y + b.y, a.z + b.z};
+}
+
+inline LightVec3 subVec3(const LightVec3& a, const LightVec3& b) {
+    return {a.x - b.x, a.y - b.y, a.z - b.z};
+}
+
+inline LightVec3 scaleVec3(const LightVec3& v, float s) {
+    return {v.x * s, v.y * s, v.z * s};
+}
+
+inline float dotVec3(const LightVec3& a, const LightVec3& b) {
+    return a.x * b.x + a.y * b.y + a.z * b.z;
+}
+
+inline LightVec3 crossVec3(const LightVec3& a, const LightVec3& b) {
+    return {
+        a.y * b.z - a.z * b.y,
+        a.z * b.x - a.x * b.z,
+        a.x * b.y - a.y * b.x
+    };
+}
+
+inline LightVec3 normalizeVec3(const LightVec3& v) {
+    const float len = sqrt(dotVec3(v, v));
+    if (len < 1e-8f) return {0.0f, 0.0f, 1.0f};
+    return {v.x / len, v.y / len, v.z / len};
+}
+
+inline LightVec3 faceNormal(const LightVec3& a, const LightVec3& b, const LightVec3& c) {
+    return normalizeVec3(crossVec3(subVec3(b, a), subVec3(c, a)));
+}
+
+inline LightVec3 orthogonalTangent(const LightVec3& normal) {
+    LightVec3 tangent = fabs(normal.y) < 0.9f
+        ? crossVec3({0.0f, 1.0f, 0.0f}, normal)
+        : crossVec3({1.0f, 0.0f, 0.0f}, normal);
+    return normalizeVec3(tangent);
+}
+
+inline LightVec3 triangleTangent(const MeshVertex& a,
+                                 const MeshVertex& b,
+                                 const MeshVertex& c,
+                                 const LightVec3& fallbackNormal) {
+    const LightVec3 e1 = subVec3(b.position, a.position);
+    const LightVec3 e2 = subVec3(c.position, a.position);
+    const float du1 = b.u - a.u;
+    const float dv1 = b.v - a.v;
+    const float du2 = c.u - a.u;
+    const float dv2 = c.v - a.v;
+    const float denom = du1 * dv2 - du2 * dv1;
+    if (fabs(denom) < 1e-8f) return orthogonalTangent(fallbackNormal);
+    const float inv = 1.0f / denom;
+    return normalizeVec3({
+        inv * (dv2 * e1.x - dv1 * e2.x),
+        inv * (dv2 * e1.y - dv1 * e2.y),
+        inv * (dv2 * e1.z - dv1 * e2.z)
+    });
+}
+
+inline void appendLitVertex(vector<float>& out, const MeshVertex& v) {
+    out.push_back(v.position.x);
+    out.push_back(v.position.y);
+    out.push_back(v.position.z);
+    out.push_back(v.color.r);
+    out.push_back(v.color.g);
+    out.push_back(v.color.b);
+    out.push_back(v.color.a);
+    out.push_back(v.normal.x);
+    out.push_back(v.normal.y);
+    out.push_back(v.normal.z);
+    out.push_back(v.u);
+    out.push_back(v.v);
+    out.push_back(v.tangent.x);
+    out.push_back(v.tangent.y);
+    out.push_back(v.tangent.z);
+}
+
+inline vector<float> interleaveLitVertices(const vector<MeshVertex>& vertices) {
+    vector<float> out;
+    out.reserve(vertices.size() * 15);
+    for (const MeshVertex& v : vertices) appendLitVertex(out, v);
+    return out;
+}
+
 // -----------------------------------------------------------------------------
 //  GenShape
-//  Generic shape that uploads user-provided geometry and renders it.
+//  Generic shape that uploads user-provided geometry or an OBJ file and renders it.
 //  - Supports both 2D and 3D positions:
 //      dims = 2  -> input is [x,y, x,y, ...], z is set to 0
 //      dims = 3  -> input is [x,y,z, x,y,z, ...]
+//  - Supports simple OBJ files with v/f records. Faces are triangulated.
 //  - Optional index buffer for indexed drawing.
 //  - primitive can be GL_TRIANGLES, GL_LINES, GL_POINTS, etc.
 // -----------------------------------------------------------------------------
@@ -39,6 +142,11 @@ public:
              const vector<unsigned int>& indices = {},
              GLenum primitiveMode = GL_TRIANGLES) {
         setGeometry(vertices, dims, indices, primitiveMode);
+    }
+
+    explicit GenShape(const string& objPath,
+                      GLenum primitiveMode = GL_TRIANGLES) {
+        setGeometryFromObj(objPath, primitiveMode);
     }
 
     // Convenience overload for 2D points.
@@ -54,19 +162,32 @@ public:
         setGeometry(verts, 2, indices, primitiveMode);
     }
 
+    GenShape(const vector<MeshVertex>& vertices,
+             const vector<unsigned int>& indices = {},
+             GLenum primitiveMode = GL_TRIANGLES) {
+        setGeometry(vertices, indices, primitiveMode);
+    }
+
+    bool loaded() const { return loaded_; }
+    const string& error() const { return error_; }
+
     // Update geometry at runtime.
     bool setGeometry(const vector<float>& vertices,
                      int dims = 3,
                      const vector<unsigned int>& indices = {},
                      GLenum primitiveMode = GL_TRIANGLES) {
         if (dims != 2 && dims != 3) {
-            fprintf(stderr, "draw3D: GenShape dims must be 2 or 3 (got %d)\n", dims);
+            error_ = "GenShape dims must be 2 or 3";
+            fprintf(stderr, "draw3D: %s (got %d)\n", error_.c_str(), dims);
+            loaded_ = false;
             return false;
         }
         if (vertices.empty() || (vertices.size() % static_cast<size_t>(dims)) != 0) {
+            error_ = "GenShape vertices size is not compatible with dims";
             fprintf(stderr,
                     "draw3D: GenShape vertices size (%zu) is not compatible with dims=%d\n",
                     vertices.size(), dims);
+            loaded_ = false;
             return false;
         }
 
@@ -84,8 +205,344 @@ public:
 
         primitive = primitiveMode;
         upload(xyz, indices);
+        loaded_ = true;
+        error_.clear();
         return true;
     }
+
+    bool setGeometry(const vector<MeshVertex>& vertices,
+                     const vector<unsigned int>& indices = {},
+                     GLenum primitiveMode = GL_TRIANGLES) {
+        if (vertices.empty()) {
+            error_ = "GenShape MeshVertex input is empty";
+            fprintf(stderr, "draw3D: %s\n", error_.c_str());
+            loaded_ = false;
+            return false;
+        }
+
+        primitive = primitiveMode;
+        uploadLit(interleaveLitVertices(vertices), indices, true, true);
+        loaded_ = true;
+        error_.clear();
+        return true;
+    }
+
+    bool setGeometryFromObj(const string& objPath,
+                            GLenum primitiveMode = GL_TRIANGLES) {
+        ObjMeshData mesh;
+        if (!loadObj(objPath, mesh)) {
+            loaded_ = false;
+            fprintf(stderr, "draw3D: GenShape OBJ load failed: %s\n", error_.c_str());
+            return false;
+        }
+
+        primitive = primitiveMode;
+        uploadLit(interleaveLitVertices(mesh.vertices), mesh.indices,
+                  mesh.hasTexCoords, mesh.hasTangents);
+        loaded_ = true;
+        error_.clear();
+        return true;
+    }
+
+private:
+    struct ObjPosition {
+        LightVec3 position {0.0f, 0.0f, 0.0f};
+        Color color {1.0f, 1.0f, 1.0f, 1.0f};
+    };
+
+    struct ObjTexCoord {
+        float u = 0.0f;
+        float v = 0.0f;
+    };
+
+    struct ObjRef {
+        int position = -1;
+        int texCoord = -1;
+        int normal = -1;
+    };
+
+    struct ObjMeshData {
+        vector<MeshVertex> vertices;
+        vector<unsigned int> indices;
+        bool hasTexCoords = false;
+        bool hasTangents = false;
+    };
+
+    bool loadObj(const string& objPath, ObjMeshData& mesh) {
+        string loadedPath;
+        ifstream file = openObjFile(objPath, loadedPath);
+        if (!file) {
+            error_ = "could not open OBJ file: " + objPath;
+            return false;
+        }
+
+        vector<ObjPosition> positions;
+        vector<ObjTexCoord> texCoords;
+        vector<LightVec3> normals;
+        vector<array<ObjRef, 3>> triangles;
+
+        LightVec3 minPos{
+            numeric_limits<float>::max(),
+            numeric_limits<float>::max(),
+            numeric_limits<float>::max()
+        };
+        LightVec3 maxPos{
+            numeric_limits<float>::lowest(),
+            numeric_limits<float>::lowest(),
+            numeric_limits<float>::lowest()
+        };
+
+        string line;
+        int lineNumber = 0;
+        while (getline(file, line)) {
+            ++lineNumber;
+
+            const size_t commentPos = line.find('#');
+            if (commentPos != string::npos) {
+                line = line.substr(0, commentPos);
+            }
+
+            string tag;
+            stringstream ss(line);
+            ss >> tag;
+
+            if (tag == "v") {
+                ObjPosition p{};
+                if (!(ss >> p.position.x >> p.position.y >> p.position.z)) {
+                    error_ = "invalid OBJ vertex at line " + to_string(lineNumber);
+                    return false;
+                }
+
+                float r = 1.0f;
+                float g = 1.0f;
+                float b = 1.0f;
+                float a = 1.0f;
+                if (ss >> r >> g >> b) {
+                    if (!(ss >> a)) a = 1.0f;
+                    p.color = normalizeObjColor(r, g, b, a);
+                }
+
+                positions.push_back(p);
+                minPos.x = min(minPos.x, p.position.x);
+                minPos.y = min(minPos.y, p.position.y);
+                minPos.z = min(minPos.z, p.position.z);
+                maxPos.x = max(maxPos.x, p.position.x);
+                maxPos.y = max(maxPos.y, p.position.y);
+                maxPos.z = max(maxPos.z, p.position.z);
+            } else if (tag == "vt") {
+                ObjTexCoord uv{};
+                if (!(ss >> uv.u)) {
+                    error_ = "invalid OBJ texture coordinate at line " + to_string(lineNumber);
+                    return false;
+                }
+                if (!(ss >> uv.v)) uv.v = 0.0f;
+                texCoords.push_back(uv);
+            } else if (tag == "vn") {
+                LightVec3 n{};
+                if (!(ss >> n.x >> n.y >> n.z)) {
+                    error_ = "invalid OBJ normal at line " + to_string(lineNumber);
+                    return false;
+                }
+                normals.push_back(normalizeVec3(n));
+            } else if (tag == "f") {
+                vector<ObjRef> face;
+                string token;
+                while (ss >> token) {
+                    ObjRef ref{};
+                    if (!parseObjFaceToken(token, positions.size(),
+                                           texCoords.size(), normals.size(), ref)) {
+                        error_ = "invalid OBJ face token at line " + to_string(lineNumber);
+                        return false;
+                    }
+                    face.push_back(ref);
+                }
+
+                if (face.size() < 3) {
+                    error_ = "OBJ face has fewer than 3 vertices at line " + to_string(lineNumber);
+                    return false;
+                }
+
+                for (size_t i = 1; i + 1 < face.size(); ++i) {
+                    triangles.push_back({face[0], face[i], face[i + 1]});
+                }
+            }
+        }
+
+        if (positions.empty()) {
+            error_ = "OBJ has no vertices: " + loadedPath;
+            return false;
+        }
+        if (triangles.empty()) {
+            error_ = "OBJ has no faces: " + loadedPath;
+            return false;
+        }
+
+        buildObjMesh(positions, texCoords, normals, triangles, minPos, maxPos, mesh);
+        return true;
+    }
+
+    static void buildObjMesh(const vector<ObjPosition>& positions,
+                             const vector<ObjTexCoord>& texCoords,
+                             const vector<LightVec3>& normals,
+                             const vector<array<ObjRef, 3>>& triangles,
+                             const LightVec3& minPos,
+                             const LightVec3& maxPos,
+                             ObjMeshData& mesh) {
+        const LightVec3 center{
+            (minPos.x + maxPos.x) * 0.5f,
+            (minPos.y + maxPos.y) * 0.5f,
+            (minPos.z + maxPos.z) * 0.5f
+        };
+        const LightVec3 size{
+            maxPos.x - minPos.x,
+            maxPos.y - minPos.y,
+            maxPos.z - minPos.z
+        };
+        const float maxExtent = max(size.x, max(size.y, size.z));
+        const float scale = maxExtent > 0.0f ? 2.0f / maxExtent : 1.0f;
+
+        mesh.vertices.clear();
+        mesh.indices.clear();
+        mesh.vertices.reserve(triangles.size() * 3);
+        mesh.hasTexCoords = false;
+        mesh.hasTangents = false;
+
+        for (const array<ObjRef, 3>& triRef : triangles) {
+            MeshVertex tri[3];
+            for (int i = 0; i < 3; ++i) {
+                const ObjRef& ref = triRef[static_cast<size_t>(i)];
+                const ObjPosition& src = positions[static_cast<size_t>(ref.position)];
+                tri[i].position = {
+                    (src.position.x - center.x) * scale,
+                    (src.position.y - center.y) * scale,
+                    (src.position.z - center.z) * scale
+                };
+                tri[i].color = src.color;
+                if (ref.texCoord >= 0 && ref.texCoord < static_cast<int>(texCoords.size())) {
+                    const ObjTexCoord& uv = texCoords[static_cast<size_t>(ref.texCoord)];
+                    tri[i].u = uv.u;
+                    tri[i].v = uv.v;
+                    mesh.hasTexCoords = true;
+                }
+                if (ref.normal >= 0 && ref.normal < static_cast<int>(normals.size())) {
+                    tri[i].normal = normals[static_cast<size_t>(ref.normal)];
+                }
+            }
+
+            const LightVec3 generatedNormal =
+                faceNormal(tri[0].position, tri[1].position, tri[2].position);
+            for (int i = 0; i < 3; ++i) {
+                if (triRef[static_cast<size_t>(i)].normal < 0) {
+                    tri[i].normal = generatedNormal;
+                } else {
+                    tri[i].normal = normalizeVec3(tri[i].normal);
+                }
+            }
+
+            const LightVec3 tangent = triangleTangent(tri[0], tri[1], tri[2], generatedNormal);
+            for (int i = 0; i < 3; ++i) {
+                tri[i].tangent = tangent;
+                mesh.vertices.push_back(tri[i]);
+            }
+            mesh.hasTangents = true;
+        }
+    }
+
+    static Color normalizeObjColor(float r, float g, float b, float a) {
+        const float maxRgb = max(r, max(g, b));
+        if (maxRgb > 1.0f) {
+            return {r / 255.0f, g / 255.0f, b / 255.0f, a > 1.0f ? a / 255.0f : a};
+        }
+        return {r, g, b, a > 1.0f ? a / 255.0f : a};
+    }
+
+    static ifstream openObjFile(const string& objPath, string& loadedPath) {
+        ifstream direct(objPath);
+        if (direct) {
+            loadedPath = objPath;
+            return direct;
+        }
+
+        const string sourceDir = headerDirectory();
+        if (sourceDir != ".") {
+            const string sourceRelative = sourceDir + "/" + objPath;
+            ifstream fromHeader(sourceRelative);
+            if (fromHeader) {
+                loadedPath = sourceRelative;
+                return fromHeader;
+            }
+        }
+
+        return ifstream();
+    }
+
+    static string headerDirectory() {
+        string path = __FILE__;
+        const size_t slashPos = path.find_last_of("/\\");
+        if (slashPos == string::npos) return ".";
+        return path.substr(0, slashPos);
+    }
+
+    static bool parseObjFaceToken(const string& token,
+                                  size_t positionCount,
+                                  size_t texCoordCount,
+                                  size_t normalCount,
+                                  ObjRef& out) {
+        const size_t firstSlash = token.find('/');
+        const size_t secondSlash = firstSlash == string::npos
+            ? string::npos
+            : token.find('/', firstSlash + 1);
+
+        const string positionText = firstSlash == string::npos
+            ? token
+            : token.substr(0, firstSlash);
+        const string texCoordText = firstSlash == string::npos
+            ? string()
+            : (secondSlash == string::npos
+                ? token.substr(firstSlash + 1)
+                : token.substr(firstSlash + 1, secondSlash - firstSlash - 1));
+        const string normalText = secondSlash == string::npos
+            ? string()
+            : token.substr(secondSlash + 1);
+
+        out.position = parseObjIndex(positionText, positionCount);
+        if (out.position < 0) return false;
+        if (!texCoordText.empty()) {
+            out.texCoord = parseObjIndex(texCoordText, texCoordCount);
+            if (out.texCoord < 0) return false;
+        }
+        if (!normalText.empty()) {
+            out.normal = parseObjIndex(normalText, normalCount);
+            if (out.normal < 0) return false;
+        }
+        return true;
+    }
+
+    static int parseObjIndex(const string& text, size_t count) {
+        if (text.empty()) return -1;
+
+        int rawIndex = 0;
+        try {
+            size_t used = 0;
+            rawIndex = stoi(text, &used);
+            if (used != text.size()) return -1;
+        } catch (...) {
+            return -1;
+        }
+
+        if (rawIndex > 0) {
+            const int idx = rawIndex - 1;
+            return idx < static_cast<int>(count) ? idx : -1;
+        }
+        if (rawIndex < 0) {
+            const int idx = static_cast<int>(count) + rawIndex;
+            return idx >= 0 && idx < static_cast<int>(count) ? idx : -1;
+        }
+        return -1;
+    }
+
+    bool loaded_ = false;
+    string error_;
 };
 
 // -----------------------------------------------------------------------------
@@ -179,7 +636,7 @@ private:
             return;
         }
 
-        if (primMode_ == DrawPrim::Filled && useFaceColors_) {
+        if (primMode_ == DrawPrim::Filled) {
             const float P[8][3] = {
                 {-hx, -hy, -hz}, {hx, -hy, -hz}, {hx, hy, -hz}, {-hx, hy, -hz},
                 {-hx, -hy,  hz}, {hx, -hy,  hz}, {hx, hy,  hz}, {-hx, hy,  hz}
@@ -188,19 +645,32 @@ private:
                 {0, 1, 2, 3}, {4, 5, 6, 7}, {0, 4, 5, 1},
                 {3, 2, 6, 7}, {0, 3, 7, 4}, {1, 5, 6, 2}
             };
+            static const LightVec3 normals[6] = {
+                { 0.0f,  0.0f, -1.0f}, { 0.0f,  0.0f,  1.0f},
+                { 0.0f, -1.0f,  0.0f}, { 0.0f,  1.0f,  0.0f},
+                {-1.0f,  0.0f,  0.0f}, { 1.0f,  0.0f,  0.0f}
+            };
+            static const LightVec3 tangents[6] = {
+                {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f},
+                {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f},
+                {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f, 1.0f}
+            };
+            static const float uv[4][2] = {
+                {0.0f, 0.0f}, {1.0f, 0.0f}, {1.0f, 1.0f}, {0.0f, 1.0f}
+            };
             vector<float> interleaved;
-            interleaved.reserve(24 * 7);
+            interleaved.reserve(24 * 15);
             for (int f = 0; f < 6; ++f) {
-                const Color& c = faceColors[static_cast<size_t>(f)];
+                const Color c = useFaceColors_ ? faceColors[static_cast<size_t>(f)] : colors::White;
                 for (int k = 0; k < 4; ++k) {
                     const int vi = faceCorners[f][k];
-                    interleaved.push_back(P[vi][0]);
-                    interleaved.push_back(P[vi][1]);
-                    interleaved.push_back(P[vi][2]);
-                    interleaved.push_back(c.r);
-                    interleaved.push_back(c.g);
-                    interleaved.push_back(c.b);
-                    interleaved.push_back(c.a);
+                    appendLitVertex(interleaved, {
+                        {P[vi][0], P[vi][1], P[vi][2]},
+                        c,
+                        normals[f],
+                        uv[k][0], uv[k][1],
+                        tangents[f]
+                    });
                 }
             }
             vector<unsigned int> idx;
@@ -211,29 +681,17 @@ private:
                 idx.push_back(b + 0); idx.push_back(b + 2); idx.push_back(b + 3);
             }
             primitive = GL_TRIANGLES;
-            uploadWithColor(interleaved, idx);
+            uploadLit(interleaved, idx);
             return;
         }
 
         vector<unsigned int> idx;
-        if (primMode_ == DrawPrim::Filled) {
-            idx = {
-                0, 1, 2,  0, 2, 3,  // back
-                4, 6, 5,  4, 7, 6,  // front
-                0, 4, 5,  0, 5, 1,  // bottom
-                3, 2, 6,  3, 6, 7,  // top
-                0, 3, 7,  0, 7, 4,  // left
-                1, 5, 6,  1, 6, 2   // right
-            };
-            primitive = GL_TRIANGLES;
-        } else {
-            idx = {
-                0, 1, 1, 2, 2, 3, 3, 0,  // back loop
-                4, 5, 5, 6, 6, 7, 7, 4,  // front loop
-                0, 4, 1, 5, 2, 6, 3, 7   // connectors
-            };
-            primitive = GL_LINES;
-        }
+        idx = {
+            0, 1, 1, 2, 2, 3, 3, 0,  // back loop
+            4, 5, 5, 6, 6, 7, 7, 4,  // front loop
+            0, 4, 1, 5, 2, 6, 3, 7   // connectors
+        };
+        primitive = GL_LINES;
         upload(verts, idx);
     }
 };
@@ -329,22 +787,25 @@ private:
             return;
         }
 
-        if (primMode_ == DrawPrim::Filled && useFaceColors_) {
+        if (primMode_ == DrawPrim::Filled) {
             vector<float> interleaved;
-            interleaved.reserve(16 * 7);
+            interleaved.reserve(16 * 15);
 
-            const Color& cBase = faceColors[0];
+            const Color cBase = useFaceColors_ ? faceColors[0] : colors::White;
             const float basePts[4][3] = {
                 {-hx, yBase, -hz}, {hx, yBase, -hz}, {hx, yBase, hz}, {-hx, yBase, hz}
             };
+            const float baseUv[4][2] = {
+                {0.0f, 0.0f}, {1.0f, 0.0f}, {1.0f, 1.0f}, {0.0f, 1.0f}
+            };
             for (int i = 0; i < 4; ++i) {
-                interleaved.push_back(basePts[i][0]);
-                interleaved.push_back(basePts[i][1]);
-                interleaved.push_back(basePts[i][2]);
-                interleaved.push_back(cBase.r);
-                interleaved.push_back(cBase.g);
-                interleaved.push_back(cBase.b);
-                interleaved.push_back(cBase.a);
+                appendLitVertex(interleaved, {
+                    {basePts[i][0], basePts[i][1], basePts[i][2]},
+                    cBase,
+                    {0.0f, -1.0f, 0.0f},
+                    baseUv[i][0], baseUv[i][1],
+                    {1.0f, 0.0f, 0.0f}
+                });
             }
 
             const float sidePts[4][3][3] = {
@@ -354,15 +815,23 @@ private:
                 {{-hx, yBase,  hz}, {-hx, yBase, -hz}, {0, yApex, 0}}
             };
             for (int f = 0; f < 4; ++f) {
-                const Color& c = faceColors[static_cast<size_t>(f + 1)];
+                const Color c = useFaceColors_ ? faceColors[static_cast<size_t>(f + 1)] : colors::White;
+                const LightVec3 p0 = {sidePts[f][0][0], sidePts[f][0][1], sidePts[f][0][2]};
+                const LightVec3 p1 = {sidePts[f][1][0], sidePts[f][1][1], sidePts[f][1][2]};
+                const LightVec3 p2 = {sidePts[f][2][0], sidePts[f][2][1], sidePts[f][2][2]};
+                const LightVec3 n = faceNormal(p0, p1, p2);
+                const LightVec3 tangent = normalizeVec3(subVec3(p1, p0));
+                const float sideUv[3][2] = {
+                    {0.0f, 0.0f}, {1.0f, 0.0f}, {0.5f, 1.0f}
+                };
                 for (int k = 0; k < 3; ++k) {
-                    interleaved.push_back(sidePts[f][k][0]);
-                    interleaved.push_back(sidePts[f][k][1]);
-                    interleaved.push_back(sidePts[f][k][2]);
-                    interleaved.push_back(c.r);
-                    interleaved.push_back(c.g);
-                    interleaved.push_back(c.b);
-                    interleaved.push_back(c.a);
+                    appendLitVertex(interleaved, {
+                        {sidePts[f][k][0], sidePts[f][k][1], sidePts[f][k][2]},
+                        c,
+                        n,
+                        sideUv[k][0], sideUv[k][1],
+                        tangent
+                    });
                 }
             }
 
@@ -375,27 +844,16 @@ private:
             };
 
             primitive = GL_TRIANGLES;
-            uploadWithColor(interleaved, idx);
+            uploadLit(interleaved, idx);
             return;
         }
 
         vector<unsigned int> idx;
-        if (primMode_ == DrawPrim::Filled) {
-            idx = {
-                0, 1, 2,  0, 2, 3,  // base
-                0, 1, 4,            // sides
-                1, 2, 4,
-                2, 3, 4,
-                3, 0, 4
-            };
-            primitive = GL_TRIANGLES;
-        } else {
-            idx = {
-                0, 1, 1, 2, 2, 3, 3, 0,  // base edges
-                0, 4, 1, 4, 2, 4, 3, 4   // side edges
-            };
-            primitive = GL_LINES;
-        }
+        idx = {
+            0, 1, 1, 2, 2, 3, 3, 0,  // base edges
+            0, 4, 1, 4, 2, 4, 3, 4   // side edges
+        };
+        primitive = GL_LINES;
         upload(verts, idx);
     }
 };
@@ -413,6 +871,8 @@ public:
 
         vector<float> verts;
         verts.reserve(static_cast<size_t>((stacks + 1) * (slices + 1) * 3));
+        vector<float> litVerts;
+        litVerts.reserve(static_cast<size_t>((stacks + 1) * (slices + 1) * 15));
 
         for (int i = 0; i <= stacks; ++i) {
             const float v = float(i) / float(stacks);
@@ -428,6 +888,20 @@ public:
                 verts.push_back(x);
                 verts.push_back(y);
                 verts.push_back(z);
+
+                const LightVec3 normal = normalizeVec3({
+                    radiusX != 0.0f ? x / (radiusX * radiusX) : 0.0f,
+                    radiusY != 0.0f ? y / (radiusY * radiusY) : 0.0f,
+                    radiusZ != 0.0f ? z / (radiusZ * radiusZ) : 0.0f
+                });
+                const LightVec3 tangent = normalizeVec3({-sin(theta), 0.0f, cos(theta)});
+                appendLitVertex(litVerts, {
+                    {x, y, z},
+                    colors::White,
+                    normal,
+                    u, 1.0f - v,
+                    tangent
+                });
             }
         }
 
@@ -452,6 +926,8 @@ public:
                     }
                 }
                 primitive = GL_TRIANGLES;
+                uploadLit(litVerts, idx);
+                return;
             } else {
                 // Latitude lines
                 idx.reserve(static_cast<size_t>(stacks * slices * 4));
@@ -479,6 +955,44 @@ public:
     Sphere(float radius = 0.5f, int stacks = 16, int slices = 24,
            DrawPrim prim = DrawPrim::Filled)
         : Sphere(radius, radius, radius, stacks, slices, prim) {}
+};
+
+// -----------------------------------------------------------------------------
+//  GlowHalo
+//  Flat transparent disc for additive glow around lamps, neon, or windows.
+//  Place/rotate it with transform.matrix and draw it with enableAdditiveBlending().
+// -----------------------------------------------------------------------------
+class GlowHalo : public Shape {
+public:
+    GlowHalo(float radius = 1.0f,
+             int segments = 48,
+             Color centerColor = {1.0f, 0.1f, 0.8f, 0.55f},
+             Color edgeColor = {1.0f, 0.1f, 0.8f, 0.0f}) {
+        if (segments < 3) segments = 3;
+
+        vector<float> interleaved;
+        interleaved.reserve(static_cast<size_t>(segments + 2) * 7);
+        appendVertex(interleaved, 0.0f, 0.0f, 0.0f, centerColor);
+        for (int i = 0; i <= segments; ++i) {
+            const float a = 2.0f * PI * float(i) / float(segments);
+            appendVertex(interleaved, radius * cos(a), radius * sin(a), 0.0f, edgeColor);
+        }
+
+        primitive = GL_TRIANGLE_FAN;
+        lightingEnabled = false;
+        uploadWithColor(interleaved);
+    }
+
+private:
+    static void appendVertex(vector<float>& out, float x, float y, float z, Color c) {
+        out.push_back(x);
+        out.push_back(y);
+        out.push_back(z);
+        out.push_back(c.r);
+        out.push_back(c.g);
+        out.push_back(c.b);
+        out.push_back(c.a);
+    }
 };
 
 #endif // DRAW3D_H_INCLUDED
