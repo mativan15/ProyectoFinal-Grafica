@@ -16,6 +16,7 @@ using namespace std;
 #endif
 
 static void framebuffer_size_callback(GLFWwindow* window, int width, int height);
+static void scroll_callback(GLFWwindow* window, double xOffset, double yOffset);
 static float framebuffer_aspect(GLFWwindow* window);
 static void framebuffer_size(GLFWwindow* window, int& width, int& height);
 
@@ -60,6 +61,7 @@ int main() {
 
     glfwMakeContextCurrent(window);
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+    glfwSetScrollCallback(window, scroll_callback);
 
     if (!gladLoadGL(glfwGetProcAddress)) {
         cerr << "Failed to initialize GLAD\n";
@@ -120,8 +122,9 @@ int main() {
 
     float cameraYaw = 0.0f;
     float cameraPitch = 0.38f;
-    const float cameraDistance = 16.0f;
+    float cameraDistance = 16.0f;
     const Vec3 cameraTarget{0.0f, 1.5f, 0.0f};
+    glfwSetWindowUserPointer(window, &cameraDistance);
 
     double lastMouseX = 0.0;
     double lastMouseY = 0.0;
@@ -263,6 +266,17 @@ int main() {
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
     (void)window;
     glViewport(0, 0, width, height);
+}
+
+void scroll_callback(GLFWwindow* window, double xOffset, double yOffset) {
+    (void)xOffset;
+
+    float* cameraDistance = static_cast<float*>(glfwGetWindowUserPointer(window));
+    if (!cameraDistance) return;
+
+    *cameraDistance -= static_cast<float>(yOffset);
+    if (*cameraDistance < 6.0f) *cameraDistance = 6.0f;
+    if (*cameraDistance > 30.0f) *cameraDistance = 30.0f;
 }
 
 float framebuffer_aspect(GLFWwindow* window) {
