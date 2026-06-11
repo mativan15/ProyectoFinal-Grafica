@@ -1,0 +1,219 @@
+# Blender 5.1.2 MTL File: 'None'
+# www.blender.org
+
+newmtl BEIGE_INT
+Ns 200.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.687000 0.613569 0.414261
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+
+newmtl BLACK_PAINT
+Ns 200.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.000000 0.000000 0.000000
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+
+newmtl CHROME
+Ns 114.230782
+Ka 1.000000 1.000000 1.000000
+Kd 0.628205 0.628205 0.628205
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+
+newmtl MIRROR
+Ns 200.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.576923 0.576923 0.576923
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+
+newmtl Porsche_911Targa4SRewardRecycled_2021BadgeA_Material
+Ns 200.000000
+Ka 1.000000 1.000000 1.000000
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 2
+map_Kd C:/Porsche_911Targa4S_2021_BadgeA_DiffuseAOSO.png
+map_d C:/Porsche_911Targa4S_2021_BadgeA_DiffuseAOSO.png
+map_Bump -bm 1.000000 C:/Porsche_911Targa4S_2021_BadgeA_Normal.png
+
+newmtl Porsche_911Targa4SRewardRecycled_2021Base_Material
+Ns 200.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.000000 0.000000 0.000000
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+
+newmtl Porsche_911Targa4SRewardRecycled_2021Coloured_Material
+Ns 200.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.027972 0.027972 0.027972
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+
+newmtl Porsche_911Targa4SRewardRecycled_2021Grille1A_Material
+Ns 200.000000
+Ka 1.000000 1.000000 1.000000
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 2
+map_Kd C:/Porsche_911Targa4S_2021_Grille1A_DiffuseAOSO.png
+map_d C:/Porsche_911Targa4S_2021_Grille1A_DiffuseAOSO.png
+map_Bump -bm 1.000000 C:/Porsche_911Targa4S_2021_Grille1A_Normal.png
+
+newmtl Porsche_911Targa4SRewardRecycled_2021Grille2A_Material
+Ns 200.000000
+Ka 1.000000 1.000000 1.000000
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 2
+map_Kd C:/Porsche_911Targa4S_2021_Grille2A_DiffuseAOSO.png
+map_d C:/Porsche_911Targa4S_2021_Grille2A_DiffuseAOSO.png
+map_Bump -bm 1.000000 C:/Porsche_911Targa4S_2021_Grille2A_Normal.png
+
+newmtl Porsche_911Targa4SRewardRecycled_2021Grille3A_Material
+Ns 200.000000
+Ka 1.000000 1.000000 1.000000
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 2
+map_Kd C:/Porsche_911Targa4S_2021_Grille3A_DiffuseAOSO.png
+map_d C:/Porsche_911Targa4S_2021_Grille3A_DiffuseAOSO.png
+map_Bump -bm 1.000000 C:/Porsche_911Targa4S_2021_Grille3A_Normal.png
+
+newmtl Porsche_911Targa4SRewardRecycled_2021InteriorA_Material
+Ns 200.000000
+Ka 1.000000 1.000000 1.000000
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 2
+map_Kd C:/Porsche_911Targa4S_2021_InteriorA_DiffuseAOSO.png
+map_d C:/Porsche_911Targa4S_2021_InteriorA_DiffuseAOSO.png
+map_Bump -bm 1.000000 C:/Porsche_911Targa4S_2021_InteriorA_Normal.png
+
+newmtl Porsche_911Targa4SRewardRecycled_2021InteriorTillingA_Material
+Ns 200.000000
+Ka 1.000000 1.000000 1.000000
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 2
+map_Kd C:/Porsche_911Targa4S_2021_InteriorTillingA_DiffuseAOSO.png
+map_d C:/Porsche_911Targa4S_2021_InteriorTillingA_DiffuseAOSO.png
+map_Bump -bm 1.000000 C:/Porsche_911Targa4S_2021_InteriorTillingA_Normal.png
+
+newmtl Porsche_911Targa4SRewardRecycled_2021LightA_Material
+Ns 200.000000
+Ka 1.000000 1.000000 1.000000
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 2
+map_Kd C:/Porsche_911Targa4S_2021_LightA_Diffuse.png
+map_d C:/Porsche_911Targa4S_2021_LightA_Diffuse.png
+
+newmtl Porsche_911Targa4SRewardRecycled_2021ManufacturerPlateA_Material
+Ns 200.000000
+Ka 1.000000 1.000000 1.000000
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 2
+map_Kd C:/Porsche_911Targa4S_2021_ManufacturerPlateA_Diffuse.png
+map_d C:/Porsche_911Targa4S_2021_ManufacturerPlateA_Diffuse.png
+
+newmtl Porsche_911Targa4SRewardRecycled_2021Paint_Material
+Ns 200.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.243000 0.000000 0.000000
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+
+newmtl Porsche_911Targa4SRewardRecycled_2021SeatBelt_Material
+Ns 200.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.118881 0.118881 0.118881
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+
+newmtl Porsche_911Targa4SRewardRecycled_2021SpecularTintA_Material
+Ns 200.000000
+Ka 1.000000 1.000000 1.000000
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 2
+map_Kd C:/Porsche_911Targa4S_2021_SpecularTintA_DiffuseAOSO.png
+map_d C:/Porsche_911Targa4S_2021_SpecularTintA_DiffuseAOSO.png
+map_Bump -bm 1.000000 C:/Porsche_911Targa4S_2021_SpecularTintA_Normal.png
+
+newmtl Porsche_911Targa4SRewardRecycled_2021Window_Material
+Ns 200.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.000000 0.000000 0.000000
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+
+newmtl RED_GLASS
+Ns 200.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.500000 0.000000 0.000000
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+
+newmtl RED_INT
+Ns 200.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.266000 0.000000 0.000000
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+
+newmtl WHITE_PAINT
+Ns 200.000000
+Ka 1.000000 1.000000 1.000000
+Kd 1.000000 1.000000 1.000000
+Ks 1.000000 1.000000 1.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2

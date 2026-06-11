@@ -1,8 +1,8 @@
 // =============================================================================
-//  gl2d.h  -  Single-header personal 2D drawing helper library for OpenGL 3.3+
+//  draw2D.h  -  Personal 2D drawing helper library for OpenGL 3.3+
 //  Author : Ivan Sardon Medina
 //
-//  Only depends on <glad/gl.h> and the C++ standard library.
+//  Lighting support is separated into lighting.h and included before Shape.
 //
 //  Transforms: see transform_math.h (Mat4, Transform, trs2D, PI).  Vertex shader:
 //  gl_Position = uModel * vec4(aPos, 1.0).
@@ -91,7 +91,8 @@ using namespace std;
 // -----------------------------------------------------------------------------
 //  Color
 // -----------------------------------------------------------------------------
-struct Color {
+class Color {
+public:
     float r = 1.0f, g = 1.0f, b = 1.0f, a = 1.0f;
 };
 
@@ -119,23 +120,10 @@ enum class DrawPrim {
 };
 
 // -----------------------------------------------------------------------------
-//  Lighting, materials, textures, and practical effects
+//  Textures and practical effects
 // -----------------------------------------------------------------------------
-constexpr int MAX_LIGHTS = 8;
-
-enum class LightType {
-    Directional,
-    Point,
-    Spot
-};
-
-struct LightVec3 {
-    float x = 0.0f;
-    float y = 0.0f;
-    float z = 0.0f;
-};
-
-struct TextureOptions {
+class TextureOptions {
+public:
     bool flipVertically = true;
     bool srgb = false;
     bool generateMipmaps = true;
@@ -145,7 +133,8 @@ struct TextureOptions {
     GLenum magFilter = GL_LINEAR;
 };
 
-struct Texture2D {
+class Texture2D {
+public:
     GLuint id = 0;
     int width = 0;
     int height = 0;
@@ -153,207 +142,6 @@ struct Texture2D {
 
     bool valid() const { return id != 0; }
 };
-
-struct Material {
-    Color ambient  {0.15f, 0.15f, 0.15f, 1.0f};
-    Color diffuse  {1.00f, 1.00f, 1.00f, 1.0f};
-    Color specular {0.55f, 0.55f, 0.55f, 1.0f};
-    Color emissive {0.00f, 0.00f, 0.00f, 1.0f};
-    float shininess = 32.0f;
-    float opacity = 1.0f;
-
-    GLuint diffuseMap = 0;
-    GLuint specularMap = 0;
-    GLuint normalMap = 0;
-};
-
-struct Light {
-    LightType type = LightType::Directional;
-    bool enabled = false;
-    LightVec3 position {0.0f, 2.0f, 2.0f};
-    LightVec3 direction {-0.2f, -1.0f, -0.3f};
-    Color color {1.0f, 1.0f, 1.0f, 1.0f};
-    float intensity = 1.0f;
-
-    // Point/spot attenuation: 1 / (constant + linear*d + quadratic*d*d).
-    float constant = 1.0f;
-    float linear = 0.09f;
-    float quadratic = 0.032f;
-
-    // Spot cutoffs are stored as cos(angle).
-    float innerCutoff = 0.976296f; // cos(12.5 deg)
-    float outerCutoff = 0.953717f; // cos(17.5 deg)
-};
-
-struct LightingEffects {
-    Color globalAmbient {0.18f, 0.18f, 0.18f, 1.0f};
-
-    bool fogEnabled = false;
-    Color fogColor {0.55f, 0.58f, 0.62f, 1.0f};
-    float fogStart = 6.0f;
-    float fogEnd = 18.0f;
-
-    bool gammaCorrection = false;
-    float gamma = 2.2f;
-    float normalMapStrength = 1.0f;
-};
-
-inline float degToRad(float deg) {
-    return deg * (PI / 180.0f);
-}
-
-inline array<Light, MAX_LIGHTS>& globalLights() {
-    static array<Light, MAX_LIGHTS> lights{};
-    return lights;
-}
-
-inline int& globalLightCount() {
-    static int count = 0;
-    return count;
-}
-
-inline Material& globalDefaultMaterial() {
-    static Material material{};
-    return material;
-}
-
-inline LightingEffects& globalLightingEffects() {
-    static LightingEffects effects{};
-    return effects;
-}
-
-inline void setDefaultMaterial(const Material& material) {
-    globalDefaultMaterial() = material;
-}
-
-inline void setLightingEffects(const LightingEffects& effects) {
-    globalLightingEffects() = effects;
-}
-
-inline void clearLights() {
-    for (Light& light : globalLights()) {
-        light = Light{};
-    }
-    globalLightCount() = 0;
-}
-
-inline int addLight(const Light& light) {
-    int& count = globalLightCount();
-    if (count >= MAX_LIGHTS) {
-        fprintf(stderr, "gl2d: maximum light count reached (%d)\n", MAX_LIGHTS);
-        return -1;
-    }
-    Light copy = light;
-    copy.enabled = true;
-    globalLights()[static_cast<size_t>(count)] = copy;
-    return count++;
-}
-
-inline int addDirectionalLight(LightVec3 direction,
-                               Color color = colors::White,
-                               float intensity = 1.0f) {
-    Light light{};
-    light.type = LightType::Directional;
-    light.direction = direction;
-    light.color = color;
-    light.intensity = intensity;
-    return addLight(light);
-}
-
-inline int addPointLight(LightVec3 position,
-                         Color color = colors::White,
-                         float intensity = 1.0f,
-                         float constant = 1.0f,
-                         float linear = 0.09f,
-                         float quadratic = 0.032f) {
-    Light light{};
-    light.type = LightType::Point;
-    light.position = position;
-    light.color = color;
-    light.intensity = intensity;
-    light.constant = constant;
-    light.linear = linear;
-    light.quadratic = quadratic;
-    return addLight(light);
-}
-
-inline int addSpotLight(LightVec3 position,
-                        LightVec3 direction,
-                        Color color = colors::White,
-                        float intensity = 1.0f,
-                        float innerDegrees = 12.5f,
-                        float outerDegrees = 17.5f,
-                        float constant = 1.0f,
-                        float linear = 0.09f,
-                        float quadratic = 0.032f) {
-    Light light{};
-    light.type = LightType::Spot;
-    light.position = position;
-    light.direction = direction;
-    light.color = color;
-    light.intensity = intensity;
-    light.innerCutoff = cos(degToRad(innerDegrees));
-    light.outerCutoff = cos(degToRad(outerDegrees));
-    light.constant = constant;
-    light.linear = linear;
-    light.quadratic = quadratic;
-    return addLight(light);
-}
-
-inline bool setLightEnabled(int index, bool enabled) {
-    if (index < 0 || index >= globalLightCount()) return false;
-    globalLights()[static_cast<size_t>(index)].enabled = enabled;
-    return true;
-}
-
-namespace Materials {
-    inline Material GlossyCar() {
-        Material m{};
-        m.ambient = {0.04f, 0.04f, 0.05f, 1.0f};
-        m.diffuse = {0.85f, 0.05f, 0.08f, 1.0f};
-        m.specular = {1.0f, 0.95f, 0.85f, 1.0f};
-        m.shininess = 96.0f;
-        return m;
-    }
-
-    inline Material WetRoad() {
-        Material m{};
-        m.ambient = {0.03f, 0.03f, 0.035f, 1.0f};
-        m.diffuse = {0.10f, 0.11f, 0.12f, 1.0f};
-        m.specular = {0.80f, 0.82f, 0.86f, 1.0f};
-        m.shininess = 72.0f;
-        return m;
-    }
-
-    inline Material NeonEmissive(Color glow = {1.0f, 0.1f, 0.8f, 1.0f},
-                                 float strength = 1.0f) {
-        Material m{};
-        m.ambient = {0.0f, 0.0f, 0.0f, 1.0f};
-        m.diffuse = {glow.r * 0.35f, glow.g * 0.35f, glow.b * 0.35f, glow.a};
-        m.specular = {0.25f, 0.25f, 0.25f, 1.0f};
-        m.emissive = {glow.r * strength, glow.g * strength, glow.b * strength, glow.a};
-        m.shininess = 24.0f;
-        return m;
-    }
-
-    inline Material MatteBuilding() {
-        Material m{};
-        m.ambient = {0.18f, 0.18f, 0.20f, 1.0f};
-        m.diffuse = {0.46f, 0.47f, 0.50f, 1.0f};
-        m.specular = {0.08f, 0.08f, 0.08f, 1.0f};
-        m.shininess = 8.0f;
-        return m;
-    }
-
-    inline Material MetalPole() {
-        Material m{};
-        m.ambient = {0.12f, 0.12f, 0.12f, 1.0f};
-        m.diffuse = {0.42f, 0.43f, 0.45f, 1.0f};
-        m.specular = {0.90f, 0.88f, 0.82f, 1.0f};
-        m.shininess = 64.0f;
-        return m;
-    }
-}
 
 inline void enableAlphaBlending() {
     glEnable(GL_BLEND);
@@ -430,7 +218,8 @@ inline void deleteTexture(Texture2D& texture) {
 //  Uniform names default to those expected by the built-in shader, but can be
 //  overridden so you can plug in any program of your own.
 // -----------------------------------------------------------------------------
-struct UniformNames {
+class UniformNames {
+public:
     string projection = "uProjection";
     string view = "uView";
     string model = "uModel";
@@ -615,11 +404,6 @@ inline void setUniformColor(const Shader& shader, const char* name, const Color&
     if (loc >= 0) glUniform4f(loc, value.r, value.g, value.b, value.a);
 }
 
-inline void setUniformVec3(const Shader& shader, const char* name, const LightVec3& value) {
-    const GLint loc = glGetUniformLocation(shader.program(), name);
-    if (loc >= 0) glUniform3f(loc, value.x, value.y, value.z);
-}
-
 inline void setUniform1f(const Shader& shader, const char* name, float value) {
     const GLint loc = glGetUniformLocation(shader.program(), name);
     if (loc >= 0) glUniform1f(loc, value);
@@ -630,219 +414,7 @@ inline void setUniform1i(const Shader& shader, const char* name, int value) {
     if (loc >= 0) glUniform1i(loc, value);
 }
 
-inline int glLightTypeValue(LightType type) {
-    switch (type) {
-        case LightType::Directional: return 0;
-        case LightType::Point: return 1;
-        case LightType::Spot: return 2;
-    }
-    return 0;
-}
-
-inline Shader& defaultShaderLitBlinnPhong() {
-    static const char* kVert =
-        "#version 330 core\n"
-        "layout(location = 0) in vec3 aPos;\n"
-        "layout(location = 1) in vec4 aColor;\n"
-        "layout(location = 2) in vec3 aNormal;\n"
-        "layout(location = 3) in vec2 aTexCoord;\n"
-        "layout(location = 4) in vec3 aTangent;\n"
-        "uniform mat4 uProjection;\n"
-        "uniform mat4 uView;\n"
-        "uniform mat4 uModel;\n"
-        "out vec4 vColor;\n"
-        "out vec3 vFragPos;\n"
-        "out vec3 vNormal;\n"
-        "out vec2 vTexCoord;\n"
-        "out vec3 vTangent;\n"
-        "void main() {\n"
-        "    vec4 worldPos = uModel * vec4(aPos, 1.0);\n"
-        "    mat3 normalMatrix = mat3(transpose(inverse(uModel)));\n"
-        "    vFragPos = worldPos.xyz;\n"
-        "    vNormal = normalize(normalMatrix * aNormal);\n"
-        "    vTangent = normalize(mat3(uModel) * aTangent);\n"
-        "    vTexCoord = aTexCoord;\n"
-        "    vColor = aColor;\n"
-        "    gl_Position = uProjection * uView * worldPos;\n"
-        "}\n";
-
-    static const char* kFrag =
-        "#version 330 core\n"
-        "const int MAX_LIGHTS = 8;\n"
-        "struct Light {\n"
-        "    int type;\n"
-        "    int enabled;\n"
-        "    vec3 position;\n"
-        "    vec3 direction;\n"
-        "    vec4 color;\n"
-        "    float intensity;\n"
-        "    float constant;\n"
-        "    float linear;\n"
-        "    float quadratic;\n"
-        "    float innerCutoff;\n"
-        "    float outerCutoff;\n"
-        "};\n"
-        "in vec4 vColor;\n"
-        "in vec3 vFragPos;\n"
-        "in vec3 vNormal;\n"
-        "in vec2 vTexCoord;\n"
-        "in vec3 vTangent;\n"
-        "out vec4 FragColor;\n"
-        "uniform vec4 uColor;\n"
-        "uniform mat4 uView;\n"
-        "uniform vec4 uMaterialAmbient;\n"
-        "uniform vec4 uMaterialDiffuse;\n"
-        "uniform vec4 uMaterialSpecular;\n"
-        "uniform vec4 uMaterialEmissive;\n"
-        "uniform float uMaterialShininess;\n"
-        "uniform float uMaterialOpacity;\n"
-        "uniform int uLightCount;\n"
-        "uniform Light uLights[MAX_LIGHTS];\n"
-        "uniform vec4 uGlobalAmbient;\n"
-        "uniform int uFogEnabled;\n"
-        "uniform vec4 uFogColor;\n"
-        "uniform float uFogStart;\n"
-        "uniform float uFogEnd;\n"
-        "uniform int uGammaCorrection;\n"
-        "uniform float uGamma;\n"
-        "uniform int uHasTexCoords;\n"
-        "uniform int uHasTangents;\n"
-        "uniform int uHasDiffuseMap;\n"
-        "uniform int uHasSpecularMap;\n"
-        "uniform int uHasNormalMap;\n"
-        "uniform float uNormalMapStrength;\n"
-        "uniform sampler2D uDiffuseMap;\n"
-        "uniform sampler2D uSpecularMap;\n"
-        "uniform sampler2D uNormalMap;\n"
-        "vec3 materialNormal() {\n"
-        "    vec3 N = normalize(vNormal);\n"
-        "    if (uHasTexCoords == 1 && uHasTangents == 1 && uHasNormalMap == 1) {\n"
-        "        vec3 T = normalize(vTangent - dot(vTangent, N) * N);\n"
-        "        vec3 B = normalize(cross(N, T));\n"
-        "        vec3 mapped = texture(uNormalMap, vTexCoord).xyz * 2.0 - 1.0;\n"
-        "        mapped.xy *= uNormalMapStrength;\n"
-        "        N = normalize(mat3(T, B, N) * mapped);\n"
-        "    }\n"
-        "    return N;\n"
-        "}\n"
-        "float attenuationFor(Light light, vec3 L) {\n"
-        "    if (light.type == 0) return 1.0;\n"
-        "    float d = length(light.position - vFragPos);\n"
-        "    float atten = 1.0 / max(light.constant + light.linear * d + light.quadratic * d * d, 0.0001);\n"
-        "    if (light.type == 2) {\n"
-        "        float theta = dot(L, normalize(-light.direction));\n"
-        "        float e = max(light.innerCutoff - light.outerCutoff, 0.0001);\n"
-        "        atten *= clamp((theta - light.outerCutoff) / e, 0.0, 1.0);\n"
-        "    }\n"
-        "    return atten;\n"
-        "}\n"
-        "void main() {\n"
-        "    vec4 diffuseTex = (uHasTexCoords == 1 && uHasDiffuseMap == 1) ? texture(uDiffuseMap, vTexCoord) : vec4(1.0);\n"
-        "    vec4 specularTex = (uHasTexCoords == 1 && uHasSpecularMap == 1) ? texture(uSpecularMap, vTexCoord) : vec4(1.0);\n"
-        "    vec4 baseDiffuse = uColor * vColor * uMaterialDiffuse * diffuseTex;\n"
-        "    vec3 specularBase = uMaterialSpecular.rgb * specularTex.rgb;\n"
-        "    vec3 N = materialNormal();\n"
-        "    vec3 cameraPos = vec3(inverse(uView)[3]);\n"
-        "    vec3 V = normalize(cameraPos - vFragPos);\n"
-        "    vec3 result = uGlobalAmbient.rgb * uMaterialAmbient.rgb * baseDiffuse.rgb;\n"
-        "    for (int i = 0; i < MAX_LIGHTS; ++i) {\n"
-        "        if (i >= uLightCount) break;\n"
-        "        Light light = uLights[i];\n"
-        "        if (light.enabled == 0) continue;\n"
-        "        vec3 L = light.type == 0 ? normalize(-light.direction) : normalize(light.position - vFragPos);\n"
-        "        vec3 H = normalize(L + V);\n"
-        "        float diff = max(dot(N, L), 0.0);\n"
-        "        float spec = diff > 0.0 ? pow(max(dot(N, H), 0.0), max(uMaterialShininess, 1.0)) : 0.0;\n"
-        "        float atten = attenuationFor(light, L);\n"
-        "        vec3 lightRgb = light.color.rgb * light.intensity * atten;\n"
-        "        result += baseDiffuse.rgb * diff * lightRgb;\n"
-        "        result += specularBase * spec * lightRgb;\n"
-        "    }\n"
-        "    result += uMaterialEmissive.rgb;\n"
-        "    float alpha = baseDiffuse.a * uMaterialOpacity;\n"
-        "    if (uFogEnabled == 1) {\n"
-        "        float dist = length((uView * vec4(vFragPos, 1.0)).xyz);\n"
-        "        float fogT = clamp((uFogEnd - dist) / max(uFogEnd - uFogStart, 0.0001), 0.0, 1.0);\n"
-        "        result = mix(uFogColor.rgb, result, fogT);\n"
-        "    }\n"
-        "    if (uGammaCorrection == 1) {\n"
-        "        result = pow(max(result, vec3(0.0)), vec3(1.0 / max(uGamma, 0.0001)));\n"
-        "    }\n"
-        "    FragColor = vec4(result, alpha);\n"
-        "}\n";
-
-    static Shader s(kVert, kFrag);
-    return s;
-}
-
-inline void uploadLightingUniforms(const Shader& shader,
-                                   const Color& drawColor,
-                                   const Material& material,
-                                   const Mat4& model,
-                                   bool hasTexCoords,
-                                   bool hasTangents) {
-    setUniformMat4(shader, "uProjection", globalProjectionMatrix());
-    setUniformMat4(shader, "uView", globalViewMatrix());
-    setUniformMat4(shader, "uModel", model);
-    setUniformColor(shader, "uColor", drawColor);
-
-    setUniformColor(shader, "uMaterialAmbient", material.ambient);
-    setUniformColor(shader, "uMaterialDiffuse", material.diffuse);
-    setUniformColor(shader, "uMaterialSpecular", material.specular);
-    setUniformColor(shader, "uMaterialEmissive", material.emissive);
-    setUniform1f(shader, "uMaterialShininess", material.shininess);
-    setUniform1f(shader, "uMaterialOpacity", material.opacity);
-
-    const LightingEffects& fx = globalLightingEffects();
-    setUniformColor(shader, "uGlobalAmbient", fx.globalAmbient);
-    setUniform1i(shader, "uFogEnabled", fx.fogEnabled ? 1 : 0);
-    setUniformColor(shader, "uFogColor", fx.fogColor);
-    setUniform1f(shader, "uFogStart", fx.fogStart);
-    setUniform1f(shader, "uFogEnd", fx.fogEnd);
-    setUniform1i(shader, "uGammaCorrection", fx.gammaCorrection ? 1 : 0);
-    setUniform1f(shader, "uGamma", fx.gamma);
-    setUniform1f(shader, "uNormalMapStrength", fx.normalMapStrength);
-
-    setUniform1i(shader, "uHasTexCoords", hasTexCoords ? 1 : 0);
-    setUniform1i(shader, "uHasTangents", hasTangents ? 1 : 0);
-    setUniform1i(shader, "uHasDiffuseMap", material.diffuseMap != 0 ? 1 : 0);
-    setUniform1i(shader, "uHasSpecularMap", material.specularMap != 0 ? 1 : 0);
-    setUniform1i(shader, "uHasNormalMap", material.normalMap != 0 ? 1 : 0);
-
-    setUniform1i(shader, "uLightCount", globalLightCount());
-    const array<Light, MAX_LIGHTS>& lights = globalLights();
-    for (int i = 0; i < MAX_LIGHTS; ++i) {
-        const Light& light = lights[static_cast<size_t>(i)];
-        const string prefix = "uLights[" + to_string(i) + "].";
-        setUniform1i(shader, (prefix + "type").c_str(), glLightTypeValue(light.type));
-        setUniform1i(shader, (prefix + "enabled").c_str(), light.enabled ? 1 : 0);
-        setUniformVec3(shader, (prefix + "position").c_str(), light.position);
-        setUniformVec3(shader, (prefix + "direction").c_str(), light.direction);
-        setUniformColor(shader, (prefix + "color").c_str(), light.color);
-        setUniform1f(shader, (prefix + "intensity").c_str(), light.intensity);
-        setUniform1f(shader, (prefix + "constant").c_str(), light.constant);
-        setUniform1f(shader, (prefix + "linear").c_str(), light.linear);
-        setUniform1f(shader, (prefix + "quadratic").c_str(), light.quadratic);
-        setUniform1f(shader, (prefix + "innerCutoff").c_str(), light.innerCutoff);
-        setUniform1f(shader, (prefix + "outerCutoff").c_str(), light.outerCutoff);
-    }
-
-    if (material.diffuseMap != 0) {
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, material.diffuseMap);
-        setUniform1i(shader, "uDiffuseMap", 0);
-    }
-    if (material.specularMap != 0) {
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, material.specularMap);
-        setUniform1i(shader, "uSpecularMap", 1);
-    }
-    if (material.normalMap != 0) {
-        glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D, material.normalMap);
-        setUniform1i(shader, "uNormalMap", 2);
-    }
-}
+#include "lighting.h"
 
 // -----------------------------------------------------------------------------
 //  Shape  (base class for every drawable primitive)
@@ -903,7 +475,7 @@ public:
                                                                       : defaultShader()));
         sh.use();
         if (useBuiltInLighting) {
-            uploadLightingUniforms(sh, c, material, model, hasTexCoords_, hasTangents_);
+            uploadLightingUniforms(sh, c, material, model, hasTexCoords_);
         } else {
             if (sh.locProjection() >= 0) glUniformMatrix4fv(sh.locProjection(), 1, GL_FALSE, globalProjectionMatrix().data());
             if (sh.locView() >= 0) glUniformMatrix4fv(sh.locView(), 1, GL_FALSE, globalViewMatrix().data());
@@ -934,7 +506,6 @@ protected:
         perVertexColor_ = true;
         hasNormals_ = false;
         hasTexCoords_ = false;
-        hasTangents_ = false;
 
         glGenVertexArrays(1, &vao_);
         glBindVertexArray(vao_);
@@ -975,7 +546,6 @@ protected:
         perVertexColor_ = false;
         hasNormals_ = false;
         hasTexCoords_ = false;
-        hasTangents_ = false;
 
         glGenVertexArrays(1, &vao_);
         glBindVertexArray(vao_);
@@ -1001,20 +571,18 @@ protected:
         glBindVertexArray(0);
     }
 
-    // Upload interleaved xyz + rgba + normal + uv + tangent (15 floats per vertex).
+    // Upload interleaved xyz + rgba + normal + uv (12 floats per vertex).
     // Lit meshes still render with the old vertex-color shader until lighting is enabled.
     void uploadLit(const vector<float>& interleaved,
                    const vector<unsigned int>& indices = {},
-                   bool hasTexCoords = true,
-                   bool hasTangents = true) {
+                   bool hasTexCoords = true) {
         cleanup();
-        vertexCount_ = static_cast<GLsizei>(interleaved.size() / 15);
+        vertexCount_ = static_cast<GLsizei>(interleaved.size() / 12);
         indexCount_  = static_cast<GLsizei>(indices.size());
         if (vertexCount_ == 0) return;
         perVertexColor_ = true;
         hasNormals_ = true;
         hasTexCoords_ = hasTexCoords;
-        hasTangents_ = hasTangents;
 
         glGenVertexArrays(1, &vao_);
         glBindVertexArray(vao_);
@@ -1026,7 +594,7 @@ protected:
                      interleaved.data(),
                      GL_STATIC_DRAW);
 
-        constexpr GLsizei stride = 15 * static_cast<GLsizei>(sizeof(float));
+        constexpr GLsizei stride = 12 * static_cast<GLsizei>(sizeof(float));
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
         glEnableVertexAttribArray(0);
         glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(float)));
@@ -1035,8 +603,6 @@ protected:
         glEnableVertexAttribArray(2);
         glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, stride, (void*)(10 * sizeof(float)));
         glEnableVertexAttribArray(3);
-        glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, stride, (void*)(12 * sizeof(float)));
-        glEnableVertexAttribArray(4);
 
         if (!indices.empty()) {
             glGenBuffers(1, &ebo_);
@@ -1058,7 +624,6 @@ protected:
     bool    perVertexColor_ = false;
     bool    hasNormals_ = false;
     bool    hasTexCoords_ = false;
-    bool    hasTangents_ = false;
 
 private:
     void cleanup() {
@@ -1070,7 +635,6 @@ private:
         perVertexColor_ = false;
         hasNormals_ = false;
         hasTexCoords_ = false;
-        hasTangents_ = false;
     }
 
     void moveFrom(Shape&& o) {
@@ -1090,14 +654,12 @@ private:
         perVertexColor_ = o.perVertexColor_;
         hasNormals_ = o.hasNormals_;
         hasTexCoords_ = o.hasTexCoords_;
-        hasTangents_ = o.hasTangents_;
         o.vao_ = o.vbo_ = o.ebo_ = 0;
         o.vertexCount_ = 0;
         o.indexCount_  = 0;
         o.perVertexColor_ = false;
         o.hasNormals_ = false;
         o.hasTexCoords_ = false;
-        o.hasTangents_ = false;
         o.lightingEnabled = false;
     }
 };
@@ -1546,7 +1108,8 @@ public:
     }
 
 private:
-    struct Child {
+    class Child {
+    public:
         Shape* shape = nullptr;
         ShapeGroup* group = nullptr;
     };

@@ -24,7 +24,8 @@
 
 // -----------------------------------------------------------------------------
 
-struct AnimSpec {
+class AnimSpec {
+public:
     float durationSec = 1.0f;   // One full cycle length (bounce = up+down, linear = ramp)
     float speed = 1.0f;         // Higher = plays faster (time multiplier)
     float amplitude = 0.5f;     // Scales scalar output (pass into your transforms)
