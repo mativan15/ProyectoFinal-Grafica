@@ -6,6 +6,7 @@ message( "Subproject name:  ${PROJECT_NAME} " )
 set(CMAKE_BINARY_DIR "${CMAKE_SOURCE_DIR}/bin")
 set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR} )
 
+
 # Enable C++11 / C++14 / C++17 / C++20
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
@@ -45,22 +46,22 @@ file(GLOB SOURCES "*.cpp" ${DEPENDENCY_DIR}/include/glad/glad/glad.c )
 file(GLOB HEADERS "*.h" )
 file(GLOB SHADERS "*.vert" "*.frag" "*.vs" "*.fs" )
 
+# min2phase (Kociemba solver)
+include_directories("${CMAKE_CURRENT_SOURCE_DIR}/min2phase/include")
+file(GLOB MIN2PHASE_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/min2phase/src/*.cpp")
+# Forzar optimizacion en min2phase independientemente del build type
+set_source_files_properties(${MIN2PHASE_SOURCES} PROPERTIES COMPILE_FLAGS "-O2")
+
 add_executable(
- ${PROJECT_NAME} WIN32 MACOSX_BUNDLE  
+ ${PROJECT_NAME} WIN32 MACOSX_BUNDLE
  ${HEADERS} ${SOURCES} ${SHADERS}
- ${ICON} ${GLAD_GL}   
-)
+ ${ICON} ${GLAD_GL}
+ ${MIN2PHASE_SOURCES} )
 
 target_compile_definitions(
     ${PROJECT_NAME}
     PRIVATE
     ASSET_DIR="${CMAKE_CURRENT_SOURCE_DIR}/Models/Porsche/"
-)
-
-target_compile_options(
-    ${PROJECT_NAME}
-    PRIVATE
-    -Wno-stringop-overflow
 )
 
 message( "\nBuild mode test is: ${CMAKE_BUILD_TYPE}" )
@@ -73,4 +74,5 @@ SET(SUBSYSTEM_LINK_FLAGS "-mconsole -mwindows")
 
 target_link_libraries(  ${PROJECT_NAME} 
                         ${SUBSYSTEM_LINK_FLAGS}
-)
+                        )
+

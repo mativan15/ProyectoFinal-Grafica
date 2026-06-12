@@ -1,19 +1,36 @@
 #define GLAD_GL_IMPLEMENTATION
 #include "camera.h"
 #include "draw3D.h"
+#include "Porsche.h"
 
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
-#include <iostream>
 #include <cmath>
+#include <iostream>
 #include <string>
 
 using namespace std;
 
+#ifndef ASSET_DIR
+#define ASSET_DIR "Models/Porsche/"
+#endif
+
 static void framebuffer_size_callback(GLFWwindow* window, int width, int height);
+static void scroll_callback(GLFWwindow* window, double xOffset, double yOffset);
 static float framebuffer_aspect(GLFWwindow* window);
 static void framebuffer_size(GLFWwindow* window, int& width, int& height);
+
+static Material wetRoadMaterial() {
+    Material material{};
+    material.ambient = {0.03f, 0.03f, 0.035f, 1.0f};
+    material.diffuse = {0.10f, 0.11f, 0.12f, 1.0f};
+    material.specular = {0.80f, 0.82f, 0.86f, 1.0f};
+    material.emissive = {0.0f, 0.0f, 0.0f, 1.0f};
+    material.shininess = 72.0f;
+    material.opacity = 1.0f;
+    return material;
+}
 
 int main() {
     glfwInit();
@@ -29,7 +46,7 @@ int main() {
     const unsigned int SCR_W = 900;
     const unsigned int SCR_H = 900;
 
-    GLFWwindow* window = glfwCreateWindow(SCR_W, SCR_H, "Car Project - OpenGL", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(SCR_W, SCR_H, "Project_10 - Porsche 918", nullptr, nullptr);
     if (!window) {
         cerr << "Failed to create GLFW window\n";
         glfwTerminate();
@@ -38,6 +55,7 @@ int main() {
 
     glfwMakeContextCurrent(window);
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+    glfwSetScrollCallback(window, scroll_callback);
 
     if (!gladLoadGL(glfwGetProcAddress)) {
         cerr << "Failed to initialize GLAD\n";
@@ -48,91 +66,50 @@ int main() {
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
 
-    // =========================================================
-    // Assets
-    // =========================================================
-    const std::string MODEL_DIR = ASSET_DIR;
-
-    cout << "Asset path: " << MODEL_DIR << endl;
+    const string modelDir = ASSET_DIR;
+    cout << "Asset path: " << modelDir << '\n';
 
     // =========================================================
-    // Models
+    // Scene objects
     // =========================================================
-    GenShape carBody(MODEL_DIR + "Body_Car.obj");
-    if (!carBody.loaded()) {
-        cerr << "Error cargando Body_Car.obj: " << carBody.error() << "\n";
+    PorscheCar car(modelDir);
+
+    if (!car.loaded()) {
+        cerr << "Error cargando Porsche completo.\n";
         glfwTerminate();
         return -1;
     }
 
-    GenShape wheel(MODEL_DIR + "Wheel.obj");
-    if (!wheel.loaded()) {
-        cerr << "Error cargando Wheel.obj: " << wheel.error() << "\n";
-        glfwTerminate();
-        return -1;
-    }
-
-    carBody.color = {0.35f, 0.04f, 0.03f, 1.0f};
-    carBody.enableLighting(Materials::GlossyCar());
-
-    // =========================================================
-    // Wheel Texture
-    // =========================================================
-    TextureOptions wheelTexOptions{};
-    wheelTexOptions.flipVertically = true;
-    wheelTexOptions.srgb = true;
-
-    Texture2D wheelTexture = loadTexture2D(
-        MODEL_DIR + "Textures/Wheel_Final.png",
-        wheelTexOptions
-    );
-
-    if (!wheelTexture.valid()) {
-        cerr << "Error cargando Wheel_Final.png\n";
-    }
-
-    Material wheelMat{};
-    wheelMat.ambient = {0.85f, 0.85f, 0.85f, 1.0f};
-    wheelMat.diffuse = {1.0f, 1.0f, 1.0f, 1.0f};
-    wheelMat.specular = {0.0f, 0.0f, 0.0f, 1.0f};
-    wheelMat.emissive = {0.0f, 0.0f, 0.0f, 1.0f};
-    wheelMat.shininess = 8.0f;
-    wheelMat.opacity = 1.0f;
-    wheelMat.diffuseMap = wheelTexture.id;
-
-    wheel.color = {1.0f, 1.0f, 1.0f, 1.0f};
-    wheel.enableLighting(wheelMat);
-
-    // =========================================================
-    // Floor
-    // =========================================================
-    Cube floor(30.0f, 0.08f, 24.0f);
+    Cube floor(34.0f, 0.08f, 26.0f);
     floor.color = {0.28f, 0.29f, 0.31f, 1.0f};
-    floor.enableLighting(Materials::WetRoad());
+    floor.enableLighting(wetRoadMaterial());
 
     // =========================================================
     // Camera
     // =========================================================
     float cameraYaw = 0.0f;
-    float cameraPitch = 0.22f;
+    float cameraPitch = 0.38f;
+    float cameraDistance = 16.0f;
 
-    const float cameraDistance = 16.0f;
-    const Vec3 cameraTarget{0.0f, -1.3f, 0.0f};
+    const Vec3 cameraTarget{0.0f, 1.5f, 0.0f};
+
+    glfwSetWindowUserPointer(window, &cameraDistance);
 
     double lastMouseX = 0.0;
     double lastMouseY = 0.0;
     bool draggingCamera = false;
+
     const float dragSensitivity = 0.008f;
 
     // =========================================================
     // Animation
     // =========================================================
-    float wheelRotation = 0.0f;
-    float currentSpeed = 2.0f;
+    const float currentSpeed = 2.0f;
     float lastTime = static_cast<float>(glfwGetTime());
 
-    cout << "Car model loaded.\n";
+    cout << "Porsche model loaded.\n";
     cout << "Hold left mouse button and drag to orbit the camera.\n";
+    cout << "Use mouse wheel to zoom.\n";
     cout << "ESC to close.\n";
 
     while (!glfwWindowShouldClose(window)) {
@@ -141,7 +118,7 @@ int main() {
         }
 
         // =====================================================
-        // Camera Input
+        // Camera input
         // =====================================================
         double mouseX = 0.0;
         double mouseY = 0.0;
@@ -169,11 +146,11 @@ int main() {
         // =====================================================
         // Time
         // =====================================================
-        const float t = static_cast<float>(glfwGetTime());
-        float deltaTime = t - lastTime;
-        lastTime = t;
+        const float time = static_cast<float>(glfwGetTime());
+        const float deltaTime = time - lastTime;
+        lastTime = time;
 
-        wheelRotation += currentSpeed * deltaTime * 5.0f;
+        car.update(deltaTime, currentSpeed);
 
         // =====================================================
         // Lighting
@@ -185,7 +162,7 @@ int main() {
         effects.fogEnabled = true;
         effects.fogColor = {0.12f, 0.13f, 0.14f, 1.0f};
         effects.fogStart = 18.0f;
-        effects.fogEnd = 40.0f;
+        effects.fogEnd = 42.0f;
         setLightingEffects(effects);
 
         addDirectionalLight(
@@ -198,39 +175,28 @@ int main() {
             {-6.0f, 5.0f, 5.5f},
             {1.00f, 0.82f, 0.45f, 1.0f},
             5.0f,
-            1.0f,
-            0.08f,
-            0.02f
+            14.0f
         );
 
         addPointLight(
             {6.0f, 5.0f, -5.5f},
             {0.35f, 0.65f, 1.00f, 1.0f},
             4.0f,
-            1.0f,
-            0.08f,
-            0.02f
+            14.0f
         );
-
-        glClearColor(0.12f, 0.13f, 0.14f, 1.0f);
 
         // =====================================================
         // Transformations
         // =====================================================
-        float bodyScale = 8.0f;
-        float wheelScale = 1.0f;
+        const float carScale = 400.0f;
 
-        carBody.transform.matrix =
-            Mat4::translate3D(0.0f, 2.25f, 0.0f) *
-            Mat4::scale3D(bodyScale, bodyScale, bodyScale);
+        car.setTransform(
+            Mat4::translate3D(0.0f, 0.23f, 0.0f) *
+            Mat4::scale3D(carScale, carScale, carScale)
+        );
 
         floor.transform.matrix =
             Mat4::translate3D(0.0f, 0.0f, 0.0f);
-
-        float wheelX = 2.8f;
-        float wheelY = 1.0f;
-        float wheelZFront = 4.4f;
-        float wheelZRear = -4.4f;
 
         // =====================================================
         // View
@@ -244,7 +210,6 @@ int main() {
         };
 
         setProjectionMatrix(perspective(45.0f, aspect, 0.1f, 100.0f));
-
         setViewMatrix(
             lookAt(
                 cameraEye,
@@ -256,38 +221,11 @@ int main() {
         // =====================================================
         // Render
         // =====================================================
+        glClearColor(0.12f, 0.13f, 0.14f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         floor.draw();
-        carBody.draw();
-
-        const float PI = 3.14159265f;
-
-        wheel.transform.matrix =
-            Mat4::translate3D(-wheelX, wheelY, wheelZFront) *
-            Mat4::rotateY(PI) *
-            //Mat4::rotateX(-wheelRotation) *
-            Mat4::scale3D(wheelScale, wheelScale, wheelScale);
-        wheel.draw();
-
-        wheel.transform.matrix =
-            Mat4::translate3D(wheelX, wheelY, wheelZFront) *
-            Mat4::rotateX(wheelRotation) *
-            Mat4::scale3D(wheelScale, wheelScale, wheelScale);
-        wheel.draw();
-
-        wheel.transform.matrix =
-            Mat4::translate3D(-wheelX, wheelY, wheelZRear) *
-            Mat4::rotateY(PI) *
-            Mat4::rotateX(-wheelRotation) *
-            Mat4::scale3D(wheelScale, wheelScale, wheelScale);
-        wheel.draw();
-
-        wheel.transform.matrix =
-            Mat4::translate3D(wheelX, wheelY, wheelZRear) *
-            //Mat4::rotateX(wheelRotation) *
-            Mat4::scale3D(wheelScale, wheelScale, wheelScale);
-        wheel.draw();
+        car.draw();
 
         glfwSwapBuffers(window);
         glfwPollEvents();
@@ -302,12 +240,32 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
     glViewport(0, 0, width, height);
 }
 
+void scroll_callback(GLFWwindow* window, double xOffset, double yOffset) {
+    (void)xOffset;
+
+    float* cameraDistance = static_cast<float*>(glfwGetWindowUserPointer(window));
+    if (!cameraDistance) return;
+
+    *cameraDistance -= static_cast<float>(yOffset);
+
+    if (*cameraDistance < 6.0f) {
+        *cameraDistance = 6.0f;
+    }
+
+    if (*cameraDistance > 32.0f) {
+        *cameraDistance = 32.0f;
+    }
+}
+
 float framebuffer_aspect(GLFWwindow* window) {
     int width = 1;
     int height = 1;
+
     framebuffer_size(window, width, height);
 
-    if (height <= 0) return 1.0f;
+    if (height <= 0) {
+        return 1.0f;
+    }
 
     return static_cast<float>(width) / static_cast<float>(height);
 }
@@ -315,6 +273,11 @@ float framebuffer_aspect(GLFWwindow* window) {
 void framebuffer_size(GLFWwindow* window, int& width, int& height) {
     glfwGetFramebufferSize(window, &width, &height);
 
-    if (width <= 0) width = 1;
-    if (height <= 0) height = 1;
+    if (width <= 0) {
+        width = 1;
+    }
+
+    if (height <= 0) {
+        height = 1;
+    }
 }

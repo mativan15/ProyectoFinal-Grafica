@@ -28,13 +28,13 @@
 #include <limits>
 #include <sstream>
 
-struct MeshVertex {
+class MeshVertex {
+public:
     LightVec3 position {0.0f, 0.0f, 0.0f};
     Color color {1.0f, 1.0f, 1.0f, 1.0f};
     LightVec3 normal {0.0f, 0.0f, 1.0f};
     float u = 0.0f;
     float v = 0.0f;
-    LightVec3 tangent {1.0f, 0.0f, 0.0f};
 };
 
 inline LightVec3 makeVec3(float x, float y, float z) { return {x, y, z}; }
@@ -73,33 +73,6 @@ inline LightVec3 faceNormal(const LightVec3& a, const LightVec3& b, const LightV
     return normalizeVec3(crossVec3(subVec3(b, a), subVec3(c, a)));
 }
 
-inline LightVec3 orthogonalTangent(const LightVec3& normal) {
-    LightVec3 tangent = fabs(normal.y) < 0.9f
-        ? crossVec3({0.0f, 1.0f, 0.0f}, normal)
-        : crossVec3({1.0f, 0.0f, 0.0f}, normal);
-    return normalizeVec3(tangent);
-}
-
-inline LightVec3 triangleTangent(const MeshVertex& a,
-                                 const MeshVertex& b,
-                                 const MeshVertex& c,
-                                 const LightVec3& fallbackNormal) {
-    const LightVec3 e1 = subVec3(b.position, a.position);
-    const LightVec3 e2 = subVec3(c.position, a.position);
-    const float du1 = b.u - a.u;
-    const float dv1 = b.v - a.v;
-    const float du2 = c.u - a.u;
-    const float dv2 = c.v - a.v;
-    const float denom = du1 * dv2 - du2 * dv1;
-    if (fabs(denom) < 1e-8f) return orthogonalTangent(fallbackNormal);
-    const float inv = 1.0f / denom;
-    return normalizeVec3({
-        inv * (dv2 * e1.x - dv1 * e2.x),
-        inv * (dv2 * e1.y - dv1 * e2.y),
-        inv * (dv2 * e1.z - dv1 * e2.z)
-    });
-}
-
 inline void appendLitVertex(vector<float>& out, const MeshVertex& v) {
     out.push_back(v.position.x);
     out.push_back(v.position.y);
@@ -113,14 +86,11 @@ inline void appendLitVertex(vector<float>& out, const MeshVertex& v) {
     out.push_back(v.normal.z);
     out.push_back(v.u);
     out.push_back(v.v);
-    out.push_back(v.tangent.x);
-    out.push_back(v.tangent.y);
-    out.push_back(v.tangent.z);
 }
 
 inline vector<float> interleaveLitVertices(const vector<MeshVertex>& vertices) {
     vector<float> out;
-    out.reserve(vertices.size() * 15);
+    out.reserve(vertices.size() * 12);
     for (const MeshVertex& v : vertices) appendLitVertex(out, v);
     return out;
 }
@@ -221,7 +191,7 @@ public:
         }
 
         primitive = primitiveMode;
-        uploadLit(interleaveLitVertices(vertices), indices, true, true);
+        uploadLit(interleaveLitVertices(vertices), indices, true);
         loaded_ = true;
         error_.clear();
         return true;
@@ -237,35 +207,37 @@ public:
         }
 
         primitive = primitiveMode;
-        uploadLit(interleaveLitVertices(mesh.vertices), mesh.indices,
-                  mesh.hasTexCoords, mesh.hasTangents);
+        uploadLit(interleaveLitVertices(mesh.vertices), mesh.indices, mesh.hasTexCoords);
         loaded_ = true;
         error_.clear();
         return true;
     }
 
 private:
-    struct ObjPosition {
+    class ObjPosition {
+    public:
         LightVec3 position {0.0f, 0.0f, 0.0f};
         Color color {1.0f, 1.0f, 1.0f, 1.0f};
     };
 
-    struct ObjTexCoord {
+    class ObjTexCoord {
+    public:
         float u = 0.0f;
         float v = 0.0f;
     };
 
-    struct ObjRef {
+    class ObjRef {
+    public:
         int position = -1;
         int texCoord = -1;
         int normal = -1;
     };
 
-    struct ObjMeshData {
+    class ObjMeshData {
+    public:
         vector<MeshVertex> vertices;
         vector<unsigned int> indices;
         bool hasTexCoords = false;
-        bool hasTangents = false;
     };
 
     bool loadObj(const string& objPath, ObjMeshData& mesh) {
@@ -381,72 +353,59 @@ private:
         return true;
     }
 
-    static void buildObjMesh(const vector<ObjPosition>& positions,
-                             const vector<ObjTexCoord>& texCoords,
-                             const vector<LightVec3>& normals,
-                             const vector<array<ObjRef, 3>>& triangles,
-                             const LightVec3& minPos,
-                             const LightVec3& maxPos,
-                             ObjMeshData& mesh) {
-        const LightVec3 center{
-            (minPos.x + maxPos.x) * 0.5f,
-            (minPos.y + maxPos.y) * 0.5f,
-            (minPos.z + maxPos.z) * 0.5f
-        };
-        const LightVec3 size{
-            maxPos.x - minPos.x,
-            maxPos.y - minPos.y,
-            maxPos.z - minPos.z
-        };
-        const float maxExtent = max(size.x, max(size.y, size.z));
-        const float scale = maxExtent > 0.0f ? 2.0f / maxExtent : 1.0f;
+	static void buildObjMesh(const vector<ObjPosition>& positions,
+							 const vector<ObjTexCoord>& texCoords,
+							 const vector<LightVec3>& normals,
+							 const vector<array<ObjRef, 3>>& triangles,
+							 const LightVec3& minPos,
+							 const LightVec3& maxPos,
+							 ObjMeshData& mesh) {
+		(void)minPos;
+		(void)maxPos;
 
-        mesh.vertices.clear();
-        mesh.indices.clear();
-        mesh.vertices.reserve(triangles.size() * 3);
-        mesh.hasTexCoords = false;
-        mesh.hasTangents = false;
+		mesh.vertices.clear();
+		mesh.indices.clear();
+		mesh.vertices.reserve(triangles.size() * 3);
+		mesh.hasTexCoords = false;
 
-        for (const array<ObjRef, 3>& triRef : triangles) {
-            MeshVertex tri[3];
-            for (int i = 0; i < 3; ++i) {
-                const ObjRef& ref = triRef[static_cast<size_t>(i)];
-                const ObjPosition& src = positions[static_cast<size_t>(ref.position)];
-                tri[i].position = {
-                    (src.position.x - center.x) * scale,
-                    (src.position.y - center.y) * scale,
-                    (src.position.z - center.z) * scale
-                };
-                tri[i].color = src.color;
-                if (ref.texCoord >= 0 && ref.texCoord < static_cast<int>(texCoords.size())) {
-                    const ObjTexCoord& uv = texCoords[static_cast<size_t>(ref.texCoord)];
-                    tri[i].u = uv.u;
-                    tri[i].v = uv.v;
-                    mesh.hasTexCoords = true;
-                }
-                if (ref.normal >= 0 && ref.normal < static_cast<int>(normals.size())) {
-                    tri[i].normal = normals[static_cast<size_t>(ref.normal)];
-                }
-            }
+		for (const array<ObjRef, 3>& triRef : triangles) {
+			MeshVertex tri[3];
 
-            const LightVec3 generatedNormal =
-                faceNormal(tri[0].position, tri[1].position, tri[2].position);
-            for (int i = 0; i < 3; ++i) {
-                if (triRef[static_cast<size_t>(i)].normal < 0) {
-                    tri[i].normal = generatedNormal;
-                } else {
-                    tri[i].normal = normalizeVec3(tri[i].normal);
-                }
-            }
+			for (int i = 0; i < 3; ++i) {
+				const ObjRef& ref = triRef[static_cast<size_t>(i)];
+				const ObjPosition& src = positions[static_cast<size_t>(ref.position)];
 
-            const LightVec3 tangent = triangleTangent(tri[0], tri[1], tri[2], generatedNormal);
-            for (int i = 0; i < 3; ++i) {
-                tri[i].tangent = tangent;
-                mesh.vertices.push_back(tri[i]);
-            }
-            mesh.hasTangents = true;
-        }
-    }
+				tri[i].position = src.position;
+				tri[i].color = src.color;
+
+				if (ref.texCoord >= 0 && ref.texCoord < static_cast<int>(texCoords.size())) {
+					const ObjTexCoord& uv = texCoords[static_cast<size_t>(ref.texCoord)];
+					tri[i].u = uv.u;
+					tri[i].v = uv.v;
+					mesh.hasTexCoords = true;
+				}
+
+				if (ref.normal >= 0 && ref.normal < static_cast<int>(normals.size())) {
+					tri[i].normal = normals[static_cast<size_t>(ref.normal)];
+				}
+			}
+
+			const LightVec3 generatedNormal =
+				faceNormal(tri[0].position, tri[1].position, tri[2].position);
+
+			for (int i = 0; i < 3; ++i) {
+				if (triRef[static_cast<size_t>(i)].normal < 0) {
+					tri[i].normal = generatedNormal;
+				} else {
+					tri[i].normal = normalizeVec3(tri[i].normal);
+				}
+			}
+
+			for (int i = 0; i < 3; ++i) {
+				mesh.vertices.push_back(tri[i]);
+			}
+		}
+	}
 
     static Color normalizeObjColor(float r, float g, float b, float a) {
         const float maxRgb = max(r, max(g, b));
@@ -650,16 +609,11 @@ private:
                 { 0.0f, -1.0f,  0.0f}, { 0.0f,  1.0f,  0.0f},
                 {-1.0f,  0.0f,  0.0f}, { 1.0f,  0.0f,  0.0f}
             };
-            static const LightVec3 tangents[6] = {
-                {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f},
-                {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f},
-                {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f, 1.0f}
-            };
             static const float uv[4][2] = {
                 {0.0f, 0.0f}, {1.0f, 0.0f}, {1.0f, 1.0f}, {0.0f, 1.0f}
             };
             vector<float> interleaved;
-            interleaved.reserve(24 * 15);
+            interleaved.reserve(24 * 12);
             for (int f = 0; f < 6; ++f) {
                 const Color c = useFaceColors_ ? faceColors[static_cast<size_t>(f)] : colors::White;
                 for (int k = 0; k < 4; ++k) {
@@ -668,8 +622,7 @@ private:
                         {P[vi][0], P[vi][1], P[vi][2]},
                         c,
                         normals[f],
-                        uv[k][0], uv[k][1],
-                        tangents[f]
+                        uv[k][0], uv[k][1]
                     });
                 }
             }
@@ -789,7 +742,7 @@ private:
 
         if (primMode_ == DrawPrim::Filled) {
             vector<float> interleaved;
-            interleaved.reserve(16 * 15);
+            interleaved.reserve(16 * 12);
 
             const Color cBase = useFaceColors_ ? faceColors[0] : colors::White;
             const float basePts[4][3] = {
@@ -803,8 +756,7 @@ private:
                     {basePts[i][0], basePts[i][1], basePts[i][2]},
                     cBase,
                     {0.0f, -1.0f, 0.0f},
-                    baseUv[i][0], baseUv[i][1],
-                    {1.0f, 0.0f, 0.0f}
+                    baseUv[i][0], baseUv[i][1]
                 });
             }
 
@@ -820,7 +772,6 @@ private:
                 const LightVec3 p1 = {sidePts[f][1][0], sidePts[f][1][1], sidePts[f][1][2]};
                 const LightVec3 p2 = {sidePts[f][2][0], sidePts[f][2][1], sidePts[f][2][2]};
                 const LightVec3 n = faceNormal(p0, p1, p2);
-                const LightVec3 tangent = normalizeVec3(subVec3(p1, p0));
                 const float sideUv[3][2] = {
                     {0.0f, 0.0f}, {1.0f, 0.0f}, {0.5f, 1.0f}
                 };
@@ -829,8 +780,7 @@ private:
                         {sidePts[f][k][0], sidePts[f][k][1], sidePts[f][k][2]},
                         c,
                         n,
-                        sideUv[k][0], sideUv[k][1],
-                        tangent
+                        sideUv[k][0], sideUv[k][1]
                     });
                 }
             }
@@ -872,7 +822,7 @@ public:
         vector<float> verts;
         verts.reserve(static_cast<size_t>((stacks + 1) * (slices + 1) * 3));
         vector<float> litVerts;
-        litVerts.reserve(static_cast<size_t>((stacks + 1) * (slices + 1) * 15));
+        litVerts.reserve(static_cast<size_t>((stacks + 1) * (slices + 1) * 12));
 
         for (int i = 0; i <= stacks; ++i) {
             const float v = float(i) / float(stacks);
@@ -894,13 +844,11 @@ public:
                     radiusY != 0.0f ? y / (radiusY * radiusY) : 0.0f,
                     radiusZ != 0.0f ? z / (radiusZ * radiusZ) : 0.0f
                 });
-                const LightVec3 tangent = normalizeVec3({-sin(theta), 0.0f, cos(theta)});
                 appendLitVertex(litVerts, {
                     {x, y, z},
                     colors::White,
                     normal,
-                    u, 1.0f - v,
-                    tangent
+                    u, 1.0f - v
                 });
             }
         }
