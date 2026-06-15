@@ -1,39 +1,32 @@
 #define GLAD_GL_IMPLEMENTATION
 #include "camera.h"
 #include "draw3D.h"
+#include "objetos.h"
 #include "Porsche.h"
 
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
-#include <cmath>
 #include <iostream>
 #include <string>
 
-using namespace std;
-
 #ifndef ASSET_DIR
-#define ASSET_DIR "Models/Porsche/"
+#define ASSET_DIR "Models/"
 #endif
 
-static void framebuffer_size_callback(GLFWwindow* window, int width, int height);
-static void scroll_callback(GLFWwindow* window, double xOffset, double yOffset);
-static float framebuffer_aspect(GLFWwindow* window);
-static void framebuffer_size(GLFWwindow* window, int& width, int& height);
-
-static Material wetRoadMaterial() {
-    Material material{};
-    material.ambient = {0.03f, 0.03f, 0.035f, 1.0f};
-    material.diffuse = {0.10f, 0.11f, 0.12f, 1.0f};
-    material.specular = {0.80f, 0.82f, 0.86f, 1.0f};
-    material.emissive = {0.0f, 0.0f, 0.0f, 1.0f};
-    material.shininess = 72.0f;
-    material.opacity = 1.0f;
-    return material;
-}
+static void framebufferSizeCallback(GLFWwindow* window, int width, int height);
+static void scrollCallback(GLFWwindow* window, double xOffset, double yOffset);
+static float getFramebufferAspect(GLFWwindow* window);
+static void processInput(GLFWwindow* window, Camera& camera, float deltaTime);
+static void updateMouseCamera(GLFWwindow* window, Camera& camera);
+static void setupSceneLights();
 
 int main() {
-    glfwInit();
+    if (!glfwInit()) {
+        std::cerr << "No se pudo inicializar GLFW.\n";
+        return -1;
+    }
+
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
@@ -43,241 +36,185 @@ int main() {
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
 
-    const unsigned int SCR_W = 900;
-    const unsigned int SCR_H = 900;
+    const int windowWidth = 1200;
+    const int windowHeight = 800;
 
-    GLFWwindow* window = glfwCreateWindow(SCR_W, SCR_H, "Project_10 - Porsche 918", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(
+        windowWidth,
+        windowHeight,
+        "Final Grafica - Porsche",
+        nullptr,
+        nullptr
+    );
+
     if (!window) {
-        cerr << "Failed to create GLFW window\n";
+        std::cerr << "No se pudo crear la ventana.\n";
         glfwTerminate();
         return -1;
     }
 
     glfwMakeContextCurrent(window);
-    glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
-    glfwSetScrollCallback(window, scroll_callback);
+    glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
+    glfwSetScrollCallback(window, scrollCallback);
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    glfwSetCursorPos(window, windowWidth / 2.0, windowHeight / 2.0);
 
     if (!gladLoadGL(glfwGetProcAddress)) {
-        cerr << "Failed to initialize GLAD\n";
+        std::cerr << "No se pudo inicializar GLAD.\n";
         glfwTerminate();
         return -1;
     }
 
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
+    glDisable(GL_CULL_FACE);
 
-    const string modelDir = ASSET_DIR;
-    cout << "Asset path: " << modelDir << '\n';
+    const std::string modelsDir = ASSET_DIR;
+    const std::string roadDir = modelsDir + "Road/";
+    const std::string porscheDir = modelsDir + "Porsche/";
 
-    // =========================================================
-    // Scene objects
-    // =========================================================
-    PorscheCar car(modelDir);
+    Objetos::BloqueCiudad ciudad(roadDir);
+    PorscheCar porsche(porscheDir);
 
-    if (!car.loaded()) {
-        cerr << "Error cargando Porsche completo.\n";
-        glfwTerminate();
-        return -1;
+    if (!porsche.loaded()) {
+        std::cerr << "El Porsche no cargo completo. Revisa rutas de OBJ/MTL/texturas.\n";
     }
 
-    Cube floor(34.0f, 0.08f, 26.0f);
-    floor.color = {0.28f, 0.29f, 0.31f, 1.0f};
-    floor.enableLighting(wetRoadMaterial());
+    Camera camera({0.0f, 3.0f, 12.0f});
+    camera.yawDeg = -90.0f;
+    camera.pitchDeg = -10.0f;
+    camera.moveSpeed = 8.0f;
+    camera.mouseSensitivity = 0.12f;
+    camera.zoomFovDeg = 45.0f;
+    camera.rotateFromMouse(0.0f, 0.0f);
 
-    // =========================================================
-    // Camera
-    // =========================================================
-    float cameraYaw = 0.0f;
-    float cameraPitch = 0.38f;
-    float cameraDistance = 16.0f;
+    glfwSetWindowUserPointer(window, &camera.zoomFovDeg);
 
-    const Vec3 cameraTarget{0.0f, 1.5f, 0.0f};
-
-    glfwSetWindowUserPointer(window, &cameraDistance);
-
-    double lastMouseX = 0.0;
-    double lastMouseY = 0.0;
-    bool draggingCamera = false;
-
-    const float dragSensitivity = 0.008f;
-
-    // =========================================================
-    // Animation
-    // =========================================================
-    const float currentSpeed = 2.0f;
     float lastTime = static_cast<float>(glfwGetTime());
-
-    cout << "Porsche model loaded.\n";
-    cout << "Hold left mouse button and drag to orbit the camera.\n";
-    cout << "Use mouse wheel to zoom.\n";
-    cout << "ESC to close.\n";
+    const float carSpeed = 2.0f;
 
     while (!glfwWindowShouldClose(window)) {
-        if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
-            glfwSetWindowShouldClose(window, true);
-        }
+        glfwPollEvents();
 
-        // =====================================================
-        // Camera input
-        // =====================================================
-        double mouseX = 0.0;
-        double mouseY = 0.0;
-        glfwGetCursorPos(window, &mouseX, &mouseY);
+        const float currentTime = static_cast<float>(glfwGetTime());
+        const float deltaTime = currentTime - lastTime;
+        lastTime = currentTime;
 
-        const bool leftMouseDown =
-            glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
+        processInput(window, camera, deltaTime);
+        updateMouseCamera(window, camera);
+        porsche.update(deltaTime, carSpeed);
 
-        if (leftMouseDown) {
-            if (draggingCamera) {
-                cameraYaw += static_cast<float>(mouseX - lastMouseX) * dragSensitivity;
-                cameraPitch += static_cast<float>(mouseY - lastMouseY) * dragSensitivity;
-
-                if (cameraPitch > 1.25f) cameraPitch = 1.25f;
-                if (cameraPitch < -1.25f) cameraPitch = -1.25f;
-            }
-
-            draggingCamera = true;
-            lastMouseX = mouseX;
-            lastMouseY = mouseY;
-        } else {
-            draggingCamera = false;
-        }
-
-        // =====================================================
-        // Time
-        // =====================================================
-        const float time = static_cast<float>(glfwGetTime());
-        const float deltaTime = time - lastTime;
-        lastTime = time;
-
-        car.update(deltaTime, currentSpeed);
-
-        // =====================================================
-        // Lighting
-        // =====================================================
         clearLights();
+        setupSceneLights();
 
-        LightingEffects effects{};
-        effects.globalAmbient = {0.20f, 0.20f, 0.22f, 1.0f};
-        effects.fogEnabled = true;
-        effects.fogColor = {0.12f, 0.13f, 0.14f, 1.0f};
-        effects.fogStart = 18.0f;
-        effects.fogEnd = 42.0f;
-        setLightingEffects(effects);
+        setProjectionMatrix(perspective(camera.zoomFovDeg, getFramebufferAspect(window), 0.1f, 250.0f));
+        setViewMatrix(camera.viewMatrix());
 
-        addDirectionalLight(
-            {-0.35f, -1.0f, -0.25f},
-            {0.90f, 0.92f, 1.00f, 1.0f},
-            1.2f
-        );
-
-        addPointLight(
-            {-6.0f, 5.0f, 5.5f},
-            {1.00f, 0.82f, 0.45f, 1.0f},
-            5.0f,
-            14.0f
-        );
-
-        addPointLight(
-            {6.0f, 5.0f, -5.5f},
-            {0.35f, 0.65f, 1.00f, 1.0f},
-            4.0f,
-            14.0f
-        );
-
-        // =====================================================
-        // Transformations
-        // =====================================================
-        const float carScale = 400.0f;
-
-        car.setTransform(
-            Mat4::translate3D(0.0f, 0.23f, 0.0f) *
-            Mat4::scale3D(carScale, carScale, carScale)
-        );
-
-        floor.transform.matrix =
-            Mat4::translate3D(0.0f, 0.0f, 0.0f);
-
-        // =====================================================
-        // View
-        // =====================================================
-        const float aspect = framebuffer_aspect(window);
-
-        const Vec3 cameraEye{
-            cameraTarget.x + cameraDistance * cos(cameraPitch) * sin(cameraYaw),
-            cameraTarget.y + cameraDistance * sin(cameraPitch),
-            cameraTarget.z + cameraDistance * cos(cameraPitch) * cos(cameraYaw)
-        };
-
-        setProjectionMatrix(perspective(45.0f, aspect, 0.1f, 100.0f));
-        setViewMatrix(
-            lookAt(
-                cameraEye,
-                cameraTarget,
-                {0.0f, 1.0f, 0.0f}
-            )
-        );
-
-        // =====================================================
-        // Render
-        // =====================================================
         glClearColor(0.12f, 0.13f, 0.14f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        floor.draw();
-        car.draw();
+        ciudad.setLayerOffsets(0.0f, 0.0f);
+        ciudad.draw();
+
+        if (porsche.loaded()) {
+            porsche.draw();
+        }
 
         glfwSwapBuffers(window);
-        glfwPollEvents();
     }
 
     glfwTerminate();
     return 0;
 }
 
-void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
+void framebufferSizeCallback(GLFWwindow* window, int width, int height) {
     (void)window;
     glViewport(0, 0, width, height);
 }
 
-void scroll_callback(GLFWwindow* window, double xOffset, double yOffset) {
+void scrollCallback(GLFWwindow* window, double xOffset, double yOffset) {
     (void)xOffset;
 
-    float* cameraDistance = static_cast<float*>(glfwGetWindowUserPointer(window));
-    if (!cameraDistance) return;
+    float* fov = static_cast<float*>(glfwGetWindowUserPointer(window));
+    if (!fov) return;
 
-    *cameraDistance -= static_cast<float>(yOffset);
-
-    if (*cameraDistance < 6.0f) {
-        *cameraDistance = 6.0f;
-    }
-
-    if (*cameraDistance > 32.0f) {
-        *cameraDistance = 32.0f;
-    }
+    *fov -= static_cast<float>(yOffset) * 2.0f;
+    if (*fov < 20.0f) *fov = 20.0f;
+    if (*fov > 75.0f) *fov = 75.0f;
 }
 
-float framebuffer_aspect(GLFWwindow* window) {
+float getFramebufferAspect(GLFWwindow* window) {
     int width = 1;
     int height = 1;
+    glfwGetFramebufferSize(window, &width, &height);
 
-    framebuffer_size(window, width, height);
-
-    if (height <= 0) {
-        return 1.0f;
-    }
+    if (width <= 0) width = 1;
+    if (height <= 0) height = 1;
 
     return static_cast<float>(width) / static_cast<float>(height);
 }
 
-void framebuffer_size(GLFWwindow* window, int& width, int& height) {
-    glfwGetFramebufferSize(window, &width, &height);
-
-    if (width <= 0) {
-        width = 1;
+void processInput(GLFWwindow* window, Camera& camera, float deltaTime) {
+    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
+        glfwSetWindowShouldClose(window, true);
     }
 
-    if (height <= 0) {
-        height = 1;
-    }
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) camera.move(CameraMove::Forward, deltaTime);
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) camera.move(CameraMove::Backward, deltaTime);
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) camera.move(CameraMove::Left, deltaTime);
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) camera.move(CameraMove::Right, deltaTime);
+    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) camera.move(CameraMove::Down, deltaTime);
+    if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS) camera.move(CameraMove::Up, deltaTime);
+}
+
+void updateMouseCamera(GLFWwindow* window, Camera& camera) {
+    int width = 1;
+    int height = 1;
+    glfwGetWindowSize(window, &width, &height);
+
+    if (width <= 0) width = 1;
+    if (height <= 0) height = 1;
+
+    const double centerX = width / 2.0;
+    const double centerY = height / 2.0;
+
+    double mouseX = 0.0;
+    double mouseY = 0.0;
+    glfwGetCursorPos(window, &mouseX, &mouseY);
+
+    const float xOffset = static_cast<float>(mouseX - centerX);
+    const float yOffset = static_cast<float>(centerY - mouseY);
+
+    camera.rotateFromMouse(xOffset, yOffset);
+    glfwSetCursorPos(window, centerX, centerY);
+}
+
+void setupSceneLights() {
+    LightingEffects effects{};
+    effects.globalAmbient = {0.20f, 0.20f, 0.22f, 1.0f};
+    effects.fogEnabled = false;
+    effects.fogColor = {0.12f, 0.13f, 0.14f, 1.0f};
+    effects.fogStart = 18.0f;
+    effects.fogEnd = 42.0f;
+    setLightingEffects(effects);
+
+    addDirectionalLight(
+        {-0.35f, -1.0f, -0.25f},
+        {0.90f, 0.92f, 1.00f, 1.0f},
+        1.2f
+    );
+
+    addPointLight(
+        {-6.0f, 5.0f, 5.5f},
+        {0.66f, 0.00f, 1.00f, 1.0f},
+        5.0f,
+        20.0f
+    );
+
+    addPointLight(
+        {6.0f, 5.0f, -5.5f},
+        {0.22f, 1.00f, 0.08f, 1.0f},
+        4.0f,
+        20.0f
+    );
 }

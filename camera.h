@@ -8,7 +8,8 @@
 // -----------------------------------------------------------------------------
 // Minimal vector math for camera/view calculations.
 // -----------------------------------------------------------------------------
-struct Vec3 {
+class Vec3 {
+public:
     float x = 0.0f;
     float y = 0.0f;
     float z = 0.0f;
@@ -116,7 +117,8 @@ inline Mat4 ortho2D(float left, float right, float bottom, float top) {
 // -----------------------------------------------------------------------------
 enum class CameraMove { Forward, Backward, Left, Right, Up, Down };
 
-struct Camera {
+class Camera {
+public:
     Vec3 position{0.0f, 0.0f, 2.0f};
     Vec3 front{0.0f, 0.0f, -1.0f};
     Vec3 up{0.0f, 1.0f, 0.0f};

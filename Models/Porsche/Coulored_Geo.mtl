@@ -1,4 +1,4 @@
-# Blender 5.1.2 MTL File: 'Body.blend'
+# Blender 5.1.2 MTL File: 'Pistas.blend'
 # www.blender.org
 
 newmtl p:Porsche_918SpyderRewardRecycled_2015Coloured_Material1.001
@@ -8,5 +8,5 @@ Ks 1.000000 1.000000 1.000000
 Ke 0.000000 0.000000 0.000000
 Ni 1.500000
 illum 2
-map_Kd C:/Global_Texture_Coloured_Diffuse.png
-map_d C:/Global_Texture_Coloured_Diffuse.png
+map_Kd C:/Users/Pochano/Documents/Modelos/Porsche/C:/Global_Texture_Coloured_Diffuse.png
+map_d C:/Users/Pochano/Documents/Modelos/Porsche/C:/Global_Texture_Coloured_Diffuse.png

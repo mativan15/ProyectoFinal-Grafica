@@ -3,14 +3,13 @@
 
 #include "draw3D.h"
 
-#include <string>
 #include <iostream>
+#include <string>
 
 class PorscheCar {
 public:
     explicit PorscheCar(const std::string& assetDir)
         : dir(assetDir),
-
           badge(dir + "Badge.obj"),
           base(dir + "Base.obj"),
           carbon(dir + "Carbon.obj"),
@@ -26,15 +25,12 @@ public:
           manufacture(dir + "Manufacture.obj"),
           paint(dir + "Paint_Geo.obj"),
           windshield(dir + "Windshield.obj"),
-
           wheelFL(dir + "Wheel.obj"),
           wheelFR(dir + "Wheel.obj"),
           wheelRL(dir + "Wheel.obj"),
-          wheelRR(dir + "Wheel.obj")
-    {
+          wheelRR(dir + "Wheel.obj") {
         loadTextures();
         setupMaterials();
-		setupPartTransforms();
         setupGroups();
         checkModels();
     }
@@ -45,7 +41,6 @@ public:
 
     void setTransform(const Mat4& matrix) {
         globalTransform = matrix;
-
         opaqueGroup.transform.matrix = globalTransform;
         wheelGroup.transform.matrix = globalTransform;
         glassGroup.transform.matrix = globalTransform;
@@ -62,9 +57,7 @@ public:
 
         enableAlphaBlending();
         glDepthMask(GL_FALSE);
-
         glassGroup.draw();
-
         glDepthMask(GL_TRUE);
         disableBlending();
     }
@@ -117,11 +110,15 @@ private:
     float wheelRotation = 0.0f;
     float wheelRotationFactor = 5.0f;
 
-	float wheelX = 0.0080f;
-	float wheelY = 0.0030f;
-	float wheelZFront = 0.0128f;
-	float wheelZRear = -0.0145f;
-	float wheelScale = 0.20f;
+    static constexpr float PI_F = 3.14159265f;
+
+    // Posiciones finales de las llantas, convertidas desde Blender:
+    // OpenGL = (Blender X, Blender Z, -Blender Y)
+    static constexpr float WHEEL_Y = 0.2400f;
+    static constexpr float FRONT_Z = 1.0717f;
+    static constexpr float REAR_Z  = 5.1717f;
+    static constexpr float LEFT_X  = -1.8466f;
+    static constexpr float RIGHT_X = 0.89338f;
 
 private:
     Texture2D loadTexture(const std::string& filename, bool flip = true) {
@@ -130,11 +127,9 @@ private:
         options.srgb = true;
 
         Texture2D texture = loadTexture2D(dir + "Textures/" + filename, options);
-
         if (!texture.valid()) {
-            std::cerr << "Error cargando textura: " << filename << "\n";
+            std::cerr << "[Porsche] Error cargando textura: " << filename << "\n";
         }
-
         return texture;
     }
 
@@ -235,34 +230,32 @@ private:
         manufacture.color = {1.0f, 1.0f, 1.0f, 1.0f};
         manufacture.enableLighting(makeTexturedMaterial(manufactureTex));
 
+        Material wheelMat = makeTexturedMaterial(
+            wheelTex,
+            {0.45f, 0.45f, 0.45f, 1.0f},
+            {1.15f, 1.15f, 1.15f, 1.0f},
+            {0.55f, 0.55f, 0.55f, 1.0f},
+            48.0f
+        );
+
         wheelFL.color = {1.0f, 1.0f, 1.0f, 1.0f};
         wheelFR.color = {1.0f, 1.0f, 1.0f, 1.0f};
         wheelRL.color = {1.0f, 1.0f, 1.0f, 1.0f};
         wheelRR.color = {1.0f, 1.0f, 1.0f, 1.0f};
+        wheelFL.enableLighting(wheelMat);
+        wheelFR.enableLighting(wheelMat);
+        wheelRL.enableLighting(wheelMat);
+        wheelRR.enableLighting(wheelMat);
 
-		Material wheelMat = makeTexturedMaterial(
-			wheelTex,
-			{0.45f, 0.45f, 0.45f, 1.0f},  
-			{1.15f, 1.15f, 1.15f, 1.0f},   
-			{0.55f, 0.55f, 0.55f, 1.0f},   
-			48.0f                          
-		);
-		
-		wheelFL.enableLighting(wheelMat);
-		wheelFR.enableLighting(wheelMat);
-		wheelRL.enableLighting(wheelMat);
-		wheelRR.enableLighting(wheelMat);
-		
         Material paintMat{};
-		paintMat.ambient = {0.18f, 0.18f, 0.17f, 1.0f};
-		paintMat.diffuse = {0.78f, 0.78f, 0.74f, 1.0f};
-		paintMat.specular = {0.85f, 0.85f, 0.82f, 1.0f};
-		paintMat.emissive = {0.0f, 0.0f, 0.0f, 1.0f};
-		paintMat.shininess = 96.0f;
-		paintMat.opacity = 1.0f;
-
-		paint.color = {0.78f, 0.78f, 0.74f, 1.0f};
-		paint.enableLighting(paintMat);
+        paintMat.ambient = {0.18f, 0.18f, 0.17f, 1.0f};
+        paintMat.diffuse = {0.78f, 0.78f, 0.74f, 1.0f};
+        paintMat.specular = {0.85f, 0.85f, 0.82f, 1.0f};
+        paintMat.emissive = {0.0f, 0.0f, 0.0f, 1.0f};
+        paintMat.shininess = 96.0f;
+        paintMat.opacity = 1.0f;
+        paint.color = {0.78f, 0.78f, 0.74f, 1.0f};
+        paint.enableLighting(paintMat);
 
         base.color = {0.035f, 0.035f, 0.04f, 1.0f};
         base.enableLighting(makeSimpleMaterial(
@@ -272,165 +265,101 @@ private:
             16.0f
         ));
 
-		Material glassMat = makeSimpleMaterial(
-			{0.12f, 0.12f, 0.12f, 0.55f}, 
-			{0.28f, 0.28f, 0.30f, 0.55f}, 
-			{0.90f, 0.90f, 0.95f, 1.0f},  
-			96.0f,
-			4.0f                          
-		);
+        Material glassMat = makeSimpleMaterial(
+            {0.12f, 0.12f, 0.12f, 0.55f},
+            {0.28f, 0.28f, 0.30f, 0.55f},
+            {0.90f, 0.90f, 0.95f, 1.0f},
+            96.0f,
+            0.55f
+        );
 
-		Material cristalMat{};
-		cristalMat.ambient = {0.65f, 0.65f, 0.65f, 1.0f};
-		cristalMat.diffuse = {1.20f, 1.20f, 1.20f, 1.0f};
-		cristalMat.specular = {0.85f, 0.85f, 0.85f, 1.0f};
-		cristalMat.emissive = {0.08f, 0.08f, 0.08f, 1.0f};
-		cristalMat.shininess = 72.0f;
-		cristalMat.opacity = 1.0f;
-		cristalMat.diffuseMap = cristalTex.id;
+        Material cristalMat{};
+        cristalMat.ambient = {0.65f, 0.65f, 0.65f, 1.0f};
+        cristalMat.diffuse = {1.20f, 1.20f, 1.20f, 1.0f};
+        cristalMat.specular = {0.85f, 0.85f, 0.85f, 1.0f};
+        cristalMat.emissive = {0.08f, 0.08f, 0.08f, 1.0f};
+        cristalMat.shininess = 72.0f;
+        cristalMat.opacity = 1.0f;
+        cristalMat.diffuseMap = cristalTex.id;
+        cristal.color = {1.0f, 1.0f, 1.0f, 1.0f};
+        cristal.enableLighting(cristalMat);
 
-		cristal.color = {1.0f, 1.0f, 1.0f, 1.0f};
-		cristal.enableLighting(cristalMat);
+        windshield.color = {0.18f, 0.30f, 0.38f, 0.35f};
+        windshield.enableLighting(glassMat);
+    }
 
+    void setupGroups() {
+        opaqueGroup.add(&paint);
+        opaqueGroup.add(&base);
+        opaqueGroup.add(&carbon);
+        opaqueGroup.add(&coloured);
+        opaqueGroup.add(&badge);
+        opaqueGroup.add(&engine);
+        opaqueGroup.add(&grille1);
+        opaqueGroup.add(&grille2);
+        opaqueGroup.add(&grille3);
+        opaqueGroup.add(&interior);
+        opaqueGroup.add(&interiorTiling);
+        opaqueGroup.add(&lights);
+        opaqueGroup.add(&manufacture);
+        opaqueGroup.add(&cristal);
 
-		windshield.color = {0.18f, 0.30f, 0.38f, 0.35f};
-		windshield.enableLighting(glassMat);
-		
-}
-	
-	void setupPartTransforms() {
-		paint.transform.matrix =
-			Mat4::translate3D(0.0f, 0.0f, 0.0f) *
-			Mat4::scale3D(1.0f, 1.0f, 1.0f);
+        wheelGroup.add(&wheelFL);
+        wheelGroup.add(&wheelFR);
+        wheelGroup.add(&wheelRL);
+        wheelGroup.add(&wheelRR);
 
-		base.transform.matrix =
-			Mat4::translate3D(0.0f, 0.0f, 0.0f) *
-			Mat4::scale3D(1.0f, 1.0f, 1.0f);
+        glassGroup.add(&windshield);
 
-		carbon.transform.matrix =
-			Mat4::translate3D(0.0f, 0.0f, 0.0f) *
-			Mat4::scale3D(1.0f, 1.0f, 1.0f);
+        setBodyTransformsToIdentity();
+        updateWheelTransforms();
+    }
 
-		coloured.transform.matrix =
-			Mat4::translate3D(0.0f, 0.0f, 0.0f) *
-			Mat4::scale3D(1.0f, 1.0f, 1.0f);
+    void setBodyTransformsToIdentity() {
+        paint.transform.matrix = Mat4::identity();
+        base.transform.matrix = Mat4::identity();
+        carbon.transform.matrix = Mat4::identity();
+        coloured.transform.matrix = Mat4::identity();
+        badge.transform.matrix = Mat4::identity();
+        engine.transform.matrix = Mat4::identity();
+        grille1.transform.matrix = Mat4::identity();
+        grille2.transform.matrix = Mat4::identity();
+        grille3.transform.matrix = Mat4::identity();
+        interior.transform.matrix = Mat4::identity();
+        interiorTiling.transform.matrix = Mat4::identity();
+        lights.transform.matrix = Mat4::identity();
+        manufacture.transform.matrix = Mat4::identity();
+        cristal.transform.matrix = Mat4::identity();
+        windshield.transform.matrix = Mat4::identity();
+    }
 
-		badge.transform.matrix =
-			Mat4::translate3D(0.0f, 0.0f, 0.0f) *
-			Mat4::scale3D(1.0f, 1.0f, 1.0f);
+    Mat4 wheelTransform(float x, float y, float z, bool rightSide, float spinSign) const {
+        Mat4 sideRotation = rightSide ? Mat4::rotateZ(PI_F) : Mat4::identity();
 
-		engine.transform.matrix =
-			Mat4::translate3D(0.0f, 0.0f, 0.0f) *
-			Mat4::scale3D(1.0f, 1.0f, 1.0f);
+        // El Wheel.obj estÃ¡ casi centrado, pero su eje circular real en YZ
+        // queda levemente desplazado. Si giramos sin compensar esto,
+        // la llanta rota alrededor de un punto cercano, pero no exacto,
+        // y visualmente se tambalea.
+        static constexpr float LOCAL_AXIS_Y = 0.002022f;
+        static constexpr float LOCAL_AXIS_Z = 0.014312f;
 
-		grille1.transform.matrix =
-			Mat4::translate3D(0.0f, 0.0f, 0.0f) *
-			Mat4::scale3D(1.0f, 1.0f, 1.0f);
+        return Mat4::translate3D(x, y, z) *
+               sideRotation *
+               Mat4::rotateX(spinSign * wheelRotation) *
+               Mat4::translate3D(0.0f, -LOCAL_AXIS_Y, -LOCAL_AXIS_Z);
+    }
 
-		grille2.transform.matrix =
-			Mat4::translate3D(0.0f, 0.0f, 0.0f) *
-			Mat4::scale3D(1.0f, 1.0f, 1.0f);
-
-		grille3.transform.matrix =
-			Mat4::translate3D(0.0f, 0.0f, 0.0f) *
-			Mat4::scale3D(1.0f, 1.0f, 1.0f);
-
-		interior.transform.matrix =
-			Mat4::translate3D(0.0f, 0.0f, 0.0f) *
-			Mat4::scale3D(1.0f, 1.0f, 1.0f);
-
-		interiorTiling.transform.matrix =
-			Mat4::translate3D(0.0f, 0.0f, 0.0f) *
-			Mat4::scale3D(1.0f, 1.0f, 1.0f);
-
-		lights.transform.matrix =
-			Mat4::translate3D(0.0f, 0.0f, 0.0f) *
-			Mat4::scale3D(1.0f, 1.0f, 1.0f);
-
-		manufacture.transform.matrix =
-			Mat4::translate3D(0.0f, 0.0f, 0.0f) *
-			Mat4::scale3D(1.0f, 1.0f, 1.0f);
-
-		cristal.transform.matrix =
-			Mat4::translate3D(0.0f, 0.0f, 0.0f) *
-			Mat4::scale3D(1.0f, 1.0f, 1.0f);
-
-		windshield.transform.matrix =
-			Mat4::translate3D(0.0f, 0.0f, 0.0f) *
-			Mat4::scale3D(1.0f, 1.0f, 1.0f);
-	}
-	
-
-	void setupGroups() {
-		
-		opaqueGroup.add(&paint);
-		opaqueGroup.add(&base);
-		opaqueGroup.add(&carbon);
-		opaqueGroup.add(&coloured);
-		opaqueGroup.add(&badge);
-		opaqueGroup.add(&engine);
-		opaqueGroup.add(&grille1);
-		opaqueGroup.add(&grille2);
-		opaqueGroup.add(&grille3);
-		opaqueGroup.add(&interior);
-		opaqueGroup.add(&interiorTiling);
-		opaqueGroup.add(&lights);
-		opaqueGroup.add(&manufacture);
-		opaqueGroup.add(&cristal);
-		
-		wheelGroup.add(&wheelFL);
-		wheelGroup.add(&wheelFR);
-	
-		wheelGroup.add(&wheelRL);
-		wheelGroup.add(&wheelRR);
-
-		glassGroup.add(&windshield);
-
-		setupPartTransforms();
-		updateWheelTransforms();
-	}
-
-	void updateWheelTransforms() {
-		const float PI = 3.14159265f;
-
-		const float cx = 0.0580f;
-		const float cy = 0.0235f;
-		const float cz = 0.2725f;
-
-		Mat4 centerWheel =
-			Mat4::translate3D(-cx, -cy, -cz);
-
-		wheelFL.transform.matrix =
-			Mat4::translate3D(-wheelX, wheelY, wheelZFront) *
-			Mat4::rotateY(PI) *
-			Mat4::rotateX(-wheelRotation) *
-			Mat4::scale3D(wheelScale, wheelScale, wheelScale) *
-			centerWheel;
-
-		wheelFR.transform.matrix =
-			Mat4::translate3D(wheelX, wheelY, wheelZFront) *
-			Mat4::rotateX(wheelRotation) *
-			Mat4::scale3D(wheelScale, wheelScale, wheelScale) *
-			centerWheel;
-
-		wheelRL.transform.matrix =
-			Mat4::translate3D(-wheelX, wheelY, wheelZRear) *
-			Mat4::rotateY(PI) *
-			Mat4::rotateX(-wheelRotation) *
-			Mat4::scale3D(wheelScale, wheelScale, wheelScale) *
-			centerWheel;
-
-		wheelRR.transform.matrix =
-			Mat4::translate3D(wheelX, wheelY, wheelZRear) *
-			Mat4::rotateX(wheelRotation) *
-			Mat4::scale3D(wheelScale, wheelScale, wheelScale) *
-			centerWheel;
-	}
+    void updateWheelTransforms() {
+        wheelFL.transform.matrix = wheelTransform(LEFT_X,  WHEEL_Y, FRONT_Z, true,  1.0f);
+        wheelRL.transform.matrix = wheelTransform(LEFT_X,  WHEEL_Y, REAR_Z,  true,  1.0f);
+        wheelFR.transform.matrix = wheelTransform(RIGHT_X, WHEEL_Y, FRONT_Z, false,  -1.0f);
+        wheelRR.transform.matrix = wheelTransform(RIGHT_X, WHEEL_Y, REAR_Z,  false,  -1.0f);
+    }
 
     void checkOne(const GenShape& shape, const std::string& name) {
         if (!shape.loaded()) {
             ok = false;
-            std::cerr << "Error cargando " << name << ": " << shape.error() << "\n";
+            std::cerr << "[Porsche] Error cargando " << name << ": " << shape.error() << "\n";
         }
     }
 
@@ -451,6 +380,9 @@ private:
         checkOne(paint, "Paint_Geo.obj");
         checkOne(windshield, "Windshield.obj");
         checkOne(wheelFL, "Wheel.obj");
+        checkOne(wheelFR, "Wheel.obj");
+        checkOne(wheelRL, "Wheel.obj");
+        checkOne(wheelRR, "Wheel.obj");
     }
 };
 

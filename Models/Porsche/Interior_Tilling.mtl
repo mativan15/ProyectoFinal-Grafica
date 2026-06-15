@@ -1,4 +1,4 @@
-# Blender 5.1.2 MTL File: 'Body.blend'
+# Blender 5.1.2 MTL File: 'Pistas.blend'
 # www.blender.org
 
 newmtl p:Porsche_918SpyderRewardRecycled_2015InteriorTillingA_Material1.001
@@ -8,6 +8,6 @@ Ks 1.000000 1.000000 1.000000
 Ke 0.000000 0.000000 0.000000
 Ni 1.500000
 illum 2
-map_Kd C:/Porsche_918Spyder_2015_InteriorTillingA_DiffuseAOSO.png
-map_d C:/Porsche_918Spyder_2015_InteriorTillingA_DiffuseAOSO.png
-map_Bump -bm 1.000000 C:/Porsche_918Spyder_2015_InteriorTillingA_Normal.png
+map_Kd C:/Users/Pochano/Documents/Modelos/Porsche/C:/Porsche_918Spyder_2015_InteriorTillingA_DiffuseAOSO.png
+map_d C:/Users/Pochano/Documents/Modelos/Porsche/C:/Porsche_918Spyder_2015_InteriorTillingA_DiffuseAOSO.png
+map_Bump -bm 1.000000 C:/Users/Pochano/Documents/Modelos/Porsche/C:/Porsche_918Spyder_2015_InteriorTillingA_Normal.png

@@ -24,7 +24,8 @@ constexpr float PI = 3.14159265358979323846f;
 //
 //  3D helpers follow the same convention (column vectors, right-hand rule):
 //      p_world = T * Rz * Ry * Rx * S * p_local  (one common order)
-struct Mat4 {
+class Mat4 {
+public:
     float m[16]{};
 
     static Mat4 identity() {
@@ -127,7 +128,8 @@ struct Mat4 {
 // -----------------------------------------------------------------------------
 //  Quaternion helpers (for safer orientation accumulation than Euler angles)
 // -----------------------------------------------------------------------------
-struct Quat {
+class Quat {
+public:
     float w, x, y, z;
 
     static Quat identity() { return {1.0f, 0.0f, 0.0f, 0.0f}; }
@@ -201,7 +203,8 @@ inline Mat4 trs3D(float tx, float ty, float tz,
 }
 
 
-struct Transform {
+class Transform {
+public:
     Mat4 matrix = Mat4::identity();
 };
 
