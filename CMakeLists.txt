@@ -1,4 +1,4 @@
-project( Project_10 )
+project( Final_Project )
 
 message( "Source of application:  ${CMAKE_SOURCE_DIR} " )
 message( "Subproject name:  ${PROJECT_NAME} " )
@@ -61,7 +61,7 @@ add_executable(
 target_compile_definitions(
     ${PROJECT_NAME}
     PRIVATE
-    ASSET_DIR="${CMAKE_CURRENT_SOURCE_DIR}/Models/Porsche/"
+    ASSET_DIR="${CMAKE_CURRENT_SOURCE_DIR}/Models/"
 )
 
 message( "\nBuild mode test is: ${CMAKE_BUILD_TYPE}" )

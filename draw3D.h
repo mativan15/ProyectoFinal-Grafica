@@ -353,68 +353,59 @@ private:
         return true;
     }
 
-    static void buildObjMesh(const vector<ObjPosition>& positions,
-                             const vector<ObjTexCoord>& texCoords,
-                             const vector<LightVec3>& normals,
-                             const vector<array<ObjRef, 3>>& triangles,
-                             const LightVec3& minPos,
-                             const LightVec3& maxPos,
-                             ObjMeshData& mesh) {
-        const LightVec3 center{
-            (minPos.x + maxPos.x) * 0.5f,
-            (minPos.y + maxPos.y) * 0.5f,
-            (minPos.z + maxPos.z) * 0.5f
-        };
-        const LightVec3 size{
-            maxPos.x - minPos.x,
-            maxPos.y - minPos.y,
-            maxPos.z - minPos.z
-        };
-        const float maxExtent = max(size.x, max(size.y, size.z));
-        const float scale = maxExtent > 0.0f ? 2.0f / maxExtent : 1.0f;
+	static void buildObjMesh(const vector<ObjPosition>& positions,
+							 const vector<ObjTexCoord>& texCoords,
+							 const vector<LightVec3>& normals,
+							 const vector<array<ObjRef, 3>>& triangles,
+							 const LightVec3& minPos,
+							 const LightVec3& maxPos,
+							 ObjMeshData& mesh) {
+		(void)minPos;
+		(void)maxPos;
 
-        mesh.vertices.clear();
-        mesh.indices.clear();
-        mesh.vertices.reserve(triangles.size() * 3);
-        mesh.hasTexCoords = false;
+		mesh.vertices.clear();
+		mesh.indices.clear();
+		mesh.vertices.reserve(triangles.size() * 3);
+		mesh.hasTexCoords = false;
 
-        for (const array<ObjRef, 3>& triRef : triangles) {
-            MeshVertex tri[3];
-            for (int i = 0; i < 3; ++i) {
-                const ObjRef& ref = triRef[static_cast<size_t>(i)];
-                const ObjPosition& src = positions[static_cast<size_t>(ref.position)];
-                tri[i].position = {
-                    (src.position.x - center.x) * scale,
-                    (src.position.y - center.y) * scale,
-                    (src.position.z - center.z) * scale
-                };
-                tri[i].color = src.color;
-                if (ref.texCoord >= 0 && ref.texCoord < static_cast<int>(texCoords.size())) {
-                    const ObjTexCoord& uv = texCoords[static_cast<size_t>(ref.texCoord)];
-                    tri[i].u = uv.u;
-                    tri[i].v = uv.v;
-                    mesh.hasTexCoords = true;
-                }
-                if (ref.normal >= 0 && ref.normal < static_cast<int>(normals.size())) {
-                    tri[i].normal = normals[static_cast<size_t>(ref.normal)];
-                }
-            }
+		for (const array<ObjRef, 3>& triRef : triangles) {
+			MeshVertex tri[3];
 
-            const LightVec3 generatedNormal =
-                faceNormal(tri[0].position, tri[1].position, tri[2].position);
-            for (int i = 0; i < 3; ++i) {
-                if (triRef[static_cast<size_t>(i)].normal < 0) {
-                    tri[i].normal = generatedNormal;
-                } else {
-                    tri[i].normal = normalizeVec3(tri[i].normal);
-                }
-            }
+			for (int i = 0; i < 3; ++i) {
+				const ObjRef& ref = triRef[static_cast<size_t>(i)];
+				const ObjPosition& src = positions[static_cast<size_t>(ref.position)];
 
-            for (int i = 0; i < 3; ++i) {
-                mesh.vertices.push_back(tri[i]);
-            }
-        }
-    }
+				tri[i].position = src.position;
+				tri[i].color = src.color;
+
+				if (ref.texCoord >= 0 && ref.texCoord < static_cast<int>(texCoords.size())) {
+					const ObjTexCoord& uv = texCoords[static_cast<size_t>(ref.texCoord)];
+					tri[i].u = uv.u;
+					tri[i].v = uv.v;
+					mesh.hasTexCoords = true;
+				}
+
+				if (ref.normal >= 0 && ref.normal < static_cast<int>(normals.size())) {
+					tri[i].normal = normals[static_cast<size_t>(ref.normal)];
+				}
+			}
+
+			const LightVec3 generatedNormal =
+				faceNormal(tri[0].position, tri[1].position, tri[2].position);
+
+			for (int i = 0; i < 3; ++i) {
+				if (triRef[static_cast<size_t>(i)].normal < 0) {
+					tri[i].normal = generatedNormal;
+				} else {
+					tri[i].normal = normalizeVec3(tri[i].normal);
+				}
+			}
+
+			for (int i = 0; i < 3; ++i) {
+				mesh.vertices.push_back(tri[i]);
+			}
+		}
+	}
 
     static Color normalizeObjColor(float r, float g, float b, float a) {
         const float maxRgb = max(r, max(g, b));
@@ -938,6 +929,122 @@ public:
         primitive = GL_TRIANGLE_FAN;
         lightingEnabled = false;
         uploadWithColor(interleaved);
+    }
+
+private:
+    static void appendVertex(vector<float>& out, float x, float y, float z, Color c) {
+        out.push_back(x);
+        out.push_back(y);
+        out.push_back(z);
+        out.push_back(c.r);
+        out.push_back(c.g);
+        out.push_back(c.b);
+        out.push_back(c.a);
+    }
+};
+
+// -----------------------------------------------------------------------------
+//  GlowCone
+//  Crossed transparent triangles that fake a visible beam through fog.
+//  Local axis points down along -Y from the origin; rotate/translate it per lamp.
+// -----------------------------------------------------------------------------
+inline Shader& glowConeFogShader() {
+    static const char* kVert =
+        "#version 330 core\n"
+        "layout(location = 0) in vec3 aPos;\n"
+        "layout(location = 1) in vec4 aColor;\n"
+        "uniform mat4 uProjection;\n"
+        "uniform mat4 uView;\n"
+        "uniform mat4 uModel;\n"
+        "out vec4 vColor;\n"
+        "out vec3 vWorldPos;\n"
+        "void main() {\n"
+        "    vec4 worldPos = uModel * vec4(aPos, 1.0);\n"
+        "    vWorldPos = worldPos.xyz;\n"
+        "    vColor = aColor;\n"
+        "    gl_Position = uProjection * uView * worldPos;\n"
+        "}\n";
+
+    static const char* kFrag =
+        "#version 330 core\n"
+        "in vec4 vColor;\n"
+        "in vec3 vWorldPos;\n"
+        "out vec4 FragColor;\n"
+        "uniform vec4 uColor;\n"
+        "uniform mat4 uView;\n"
+        "uniform int uFogEnabled;\n"
+        "uniform vec4 uFogColor;\n"
+        "uniform float uFogStart;\n"
+        "uniform float uFogEnd;\n"
+        "void main() {\n"
+        "    vec4 beam = uColor * vColor;\n"
+        "    if (uFogEnabled == 1) {\n"
+        "        vec3 cameraPos = vec3(inverse(uView)[3]);\n"
+        "        float dist = length(cameraPos - vWorldPos);\n"
+        "        float fogT = clamp((uFogEnd - dist) / max(uFogEnd - uFogStart, 0.0001), 0.0, 1.0);\n"
+        "        beam.rgb = mix(uFogColor.rgb, beam.rgb, fogT);\n"
+        "        beam.a *= fogT;\n"
+        "    }\n"
+        "    FragColor = beam;\n"
+        "}\n";
+
+    static Shader shader(kVert, kFrag);
+    return shader;
+}
+
+class GlowCone : public Shape {
+public:
+    GlowCone(float length = 5.0f,
+             float radius = 1.2f,
+             int planes = 5,
+             Color originColor = {0.90f, 0.75f, 0.49f, 0.05f},
+             Color edgeColor = {1.0f, 0.82f, 0.58f, 0.0f}) {
+        if (planes < 2) planes = 2;
+
+        vector<float> interleaved;
+        interleaved.reserve(static_cast<size_t>(planes) * 3 * 7);
+
+        for (int i = 0; i < planes; ++i) {
+            const float a = PI * float(i) / float(planes);
+            const float dx = radius * cos(a);
+            const float dz = radius * sin(a);
+
+            appendVertex(interleaved, 0.0f, 0.0f, 0.0f, originColor);
+            appendVertex(interleaved,  dx, -length,  dz, edgeColor);
+            appendVertex(interleaved, -dx, -length, -dz, edgeColor);
+        }
+
+        primitive = GL_TRIANGLES;
+        lightingEnabled = false;
+        uploadWithColor(interleaved);
+    }
+
+    using Shape::draw;
+
+    void draw(const Color& c, const Mat4& model) const {
+        if (vao_ == 0) return;
+
+        Shader& sh = glowConeFogShader();
+        sh.use();
+
+        setUniformMat4(sh, "uProjection", globalProjectionMatrix());
+        setUniformMat4(sh, "uView", globalViewMatrix());
+        setUniformMat4(sh, "uModel", model);
+        setUniformColor(sh, "uColor", c);
+
+        const LightingEffects& fx = globalLightingEffects();
+        setUniform1i(sh, "uFogEnabled", fx.fogEnabled ? 1 : 0);
+        setUniformColor(sh, "uFogColor", fx.fogColor);
+        setUniform1f(sh, "uFogStart", fx.fogStart);
+        setUniform1f(sh, "uFogEnd", fx.fogEnd);
+
+        glBindVertexArray(vao_);
+        if (indexCount_ > 0) {
+            glDrawElements(primitive, indexCount_, GL_UNSIGNED_INT, nullptr);
+        } else {
+            glDrawArrays(primitive, 0, vertexCount_);
+        }
+        glBindVertexArray(0);
     }
 
 private:
