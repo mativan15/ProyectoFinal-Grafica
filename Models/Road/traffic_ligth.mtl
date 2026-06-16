@@ -1,0 +1,14 @@
+# Blender 5.1.2 MTL File: 'Pistas.blend'
+# www.blender.org
+
+newmtl metal_street_props
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd C:/Users/Pochano/Downloads/street-and-city-props-dumpster-traffic-light/source/street_city_props/street_city_props/textures/metal street props_Base_color.png
+map_Ns C:/Users/Pochano/Downloads/street-and-city-props-dumpster-traffic-light/source/street_city_props/street_city_props/textures/metal street props_Roughness.png
+map_refl C:/Users/Pochano/Downloads/street-and-city-props-dumpster-traffic-light/source/street_city_props/street_city_props/textures/metal street props_Metallic.png
+map_Ke C:/Users/Pochano/Downloads/street-and-city-props-dumpster-traffic-light/source/street_city_props/street_city_props/textures/metal street props_Emissive.png
+map_Bump -bm 1.000000 C:/Users/Pochano/Downloads/street-and-city-props-dumpster-traffic-light/source/street_city_props/street_city_props/textures/metal street props_Normal_OpenGL.png

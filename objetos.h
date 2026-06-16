@@ -1,3 +1,4 @@
+
 #ifndef OBJETOS_H_INCLUDED
 #define OBJETOS_H_INCLUDED
 
@@ -531,6 +532,22 @@ public:
     }
 };
 
+
+class TrafficLigthObjects : public RepeatedModel {
+public:
+    explicit TrafficLigthObjects(const std::string& dir)
+        : RepeatedModel(dir + "traffic_ligth.obj") {
+        Texture2D tex = loadTexture(dir + "Texture/traffic_ligth.png", true, false);
+
+        if (tex.valid()) setMaterial(makeOpaqueMaterial(tex));
+        else setMaterial(makeSimpleMaterial({0.18f, 0.18f, 0.17f, 1.0f}));
+
+        setInstances({
+            makeTransform(5.5f, -0.1f, 15.0f, 0, 0, 0, 1.3f, 1.3f, 1.0f)
+        });
+    }
+};
+
 class LowGreenTreeObjects : public RepeatedModel {
 public:
     explicit LowGreenTreeObjects(const std::string& dir)
@@ -878,6 +895,7 @@ public:
           yellowLeaves(roadDir),
           lowTowers(roadDir),
           lowConstructions(roadDir),
+		  trafficLigth(roadDir), 
           windowLights() {
     }
 
@@ -910,6 +928,9 @@ public:
         yellowLeaves.draw(nearLayer);
         lowTowers.draw(nearLayer);
         lowConstructions.draw(nearLayer);
+
+		trafficLigth.draw(nearLayer);
+
 
         windowLights.draw(
             mediumLayer,
@@ -944,6 +965,8 @@ public:
     YellowTreeLeafObjects yellowLeaves;
     LowTowerObjects lowTowers;
     LowConstructionObjects lowConstructions;
+	TrafficLigthObjects trafficLigth;
+
     CityWindowLights windowLights;
 };
 
