@@ -1,0 +1,319 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage{geometry}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{hyperref}
+
+\geometry{margin=2.0cm}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.42em}
+\sloppy
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue!45!black,
+    urlcolor=blue!45!black
+}
+
+\newcommand{\code}[1]{\texttt{\detokenize{#1}}}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+
+\lstset{
+    basicstyle=\ttfamily\small,
+    columns=fullflexible,
+    keepspaces=true,
+    breaklines=true,
+    frame=single,
+    rulecolor=\color{black!35}
+}
+
+\title{\textbf{Cyberpunk Velocity}}
+\author{
+    \textbf{Integrantes}\\[0.35em]
+    Iván Sardón Medina\\
+    José Miguel Valdivia\\
+    Rodrigo Silva Murillo
+}
+\date{Junio de 2026}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+\newpage
+
+\section{Resumen}
+
+\textbf{Cyberpunk Velocity} es una escena 3D interactiva desarrollada con OpenGL 3.3 Core Profile. El programa muestra un Porsche en una carretera urbana nocturna con edificios, vegetacion, postes de luz, semaforo, cielo sintetico, sol con halo, niebla y varias camaras. El archivo \path{main.cpp} coordina la inicializacion de GLFW/GLAD, la carga de modelos y texturas, la configuracion de proyeccion/vista, la actualizacion temporal de la animacion, el registro de luces y el dibujo final de cada frame.
+
+La escena se apoya en cabeceras propias que funcionan como un pequeno motor grafico: \path{draw2D.h}, \path{draw3D.h}, \path{lighting.h}, \path{transformations.h}, \path{camera.h}, \path{CameraSystem.h}, \path{objetos.h}, \path{Porsche.h} y \path{Sky.h}. Estas librerias encapsulan matrices, shaders, VAO/VBO/EBO, carga OBJ, texturas, materiales, luces, grupos de formas, camaras y objetos compuestos.
+
+\section{Objetivo y alcance}
+
+El objetivo tecnico es integrar los temas principales de graficos por computadora en una escena navegable: transformaciones 3D, proyeccion perspectiva, camaras \code{lookAt}, carga de mallas OBJ, texturizado, iluminacion Blinn-Phong, blending, niebla y animacion por tiempo.
+
+El alcance implementado incluye una ventana 1920x1080, un Porsche dividido en piezas, un bloque urbano con carretera y elementos decorativos, un cielo procedural texturizado, luces direccionales y spotlights, materiales con texturas PNG, transparencias, rotacion de ruedas, desplazamiento de capas para simular avance y frenado automatico ante el semaforo.
+
+\section{Organizacion del codigo}
+
+La estructura logica del programa es:
+
+\begin{lstlisting}
+Cyberpunk Velocity/
+    main.cpp              // loop principal e inicializacion
+    draw2D.h / draw3D.h   // base de dibujo, VAO/VBO, formas y OBJ
+    lighting.h            // luces, materiales y shader Blinn-Phong
+    transformations.h     // Mat4, Transform y composicion TRS
+    camera.h              // lookAt, perspective y camara libre
+    CameraSystem.h        // modos de camara e input
+    objetos.h             // ciudad, carretera, postes, semaforo
+    Porsche.h             // vehiculo, piezas, texturas y ruedas
+    Sky.h                 // domo de cielo, sol y halo
+    Models/               // OBJ, MTL y texturas PNG
+\end{lstlisting}
+
+Aunque existen archivos \code{.mtl}, el cargador propio no interpreta materiales MTL. Las propiedades visuales se asignan manualmente desde C++ mediante \code{Material}, \code{Texture2D} y \code{enableLighting(...)}. Esto da control directo sobre color, especularidad, emisividad, alfa y mapas difusos.
+
+\section{Librerias propias y externas}
+
+\begin{longtable}{L{0.25\linewidth}L{0.69\linewidth}}
+\textbf{Archivo} & \textbf{Uso principal} \\
+\hline
+\path{transformations.h} & Define matrices column-major compatibles con OpenGL. Sus funciones clave son \code{Mat4::identity}, \code{translate3D}, \code{rotateX/Y/Z}, \code{scale3D} y el operador de multiplicacion. \\
+\hline
+\path{draw2D.h} & Provee \code{Color}, \code{Texture2D}, \code{Shader}, \code{Shape}, \code{ShapeGroup}, carga de texturas con \code{loadTexture2D}, matrices globales y blending alfa/aditivo. \\
+\hline
+\path{draw3D.h} & Agrega \code{GenShape} para OBJ y geometria propia. Tambien define \code{MeshVertex}, \code{Sphere}, \code{GlowHalo} y \code{GlowCone}. \\
+\hline
+\path{lighting.h} & Define \code{Material}, \code{Light}, \code{LightingEffects}, \code{clearLights}, \code{addDirectionalLight}, \code{addPointLight}, \code{addSpotLight} y el shader Blinn-Phong con niebla. \\
+\hline
+\path{camera.h} y \path{CameraSystem.h} & Implementan \code{lookAt}, \code{perspective}, camara libre, modos fijos, FOV activo, scroll e input de teclado/mouse. \\
+\hline
+\path{objetos.h} & Construye la ciudad mediante modelos repetidos: carretera, veredas, edificios, arboles, bancas, postes, semaforo y luces de ventanas. \\
+\hline
+\path{Porsche.h} y \path{Sky.h} & Encapsulan el auto y el cielo. El primero agrupa piezas y ruedas; el segundo genera el domo, carga la textura del cielo y dibuja sol/halo. \\
+\end{longtable}
+
+Las dependencias externas son GLFW para ventana e input, GLAD para cargar funciones OpenGL, OpenGL 3.3 para el render, \code{stb_image} para PNG y la STL de C++ para contenedores, cadenas, archivos y operaciones matematicas.
+
+\section{Funciones clave aplicadas}
+
+Las siguientes funciones son las que conectan directamente las librerias propias con la escena final:
+
+\begin{longtable}{L{0.30\linewidth}L{0.64\linewidth}}
+\textbf{Funcion o clase} & \textbf{Uso concreto en Cyberpunk Velocity} \\
+\hline
+\code{setProjectionMatrix} y \code{setViewMatrix} & Guardan matrices globales usadas por los shaders por defecto. Antes de dibujar se actualiza la proyeccion perspectiva y la vista activa para que todos los objetos compartan la misma camara. \\
+\hline
+\code{Shape::draw} & Selecciona el shader correcto, sube uniformes, enlaza el VAO y llama a \code{glDrawElements} o \code{glDrawArrays}. Si el objeto tiene normales y material, usa el shader Blinn-Phong. \\
+\hline
+\code{ShapeGroup::draw} & Multiplica la matriz del grupo por la matriz local de cada hijo. Se usa para agrupar piezas del Porsche y para aplicar transformaciones comunes sin reescribir cada objeto. \\
+\hline
+\code{GenShape(objPath)} & Carga modelos OBJ de carretera, edificios, Porsche y decoracion. Convierte el archivo a vertices intercalados con posicion, color, normal y UV. \\
+\hline
+\code{loadTexture2D} & Carga PNG con \code{stb_image}, crea el objeto \code{GL_TEXTURE_2D}, define wrapping/filtros y opcionalmente genera mipmaps. \\
+\hline
+\code{enableLighting(material)} & Activa el material de una malla para que \code{Shape::draw} use \code{defaultShaderLitBlinnPhong}. Es la union entre geometria, textura y luces. \\
+\hline
+\code{clearLights} y \code{addSpotLight} & Reinician y reconstruyen el arreglo de luces cada frame. Esto permite que las luces de postes se mantengan coherentes con la posicion animada de la ciudad. \\
+\hline
+\code{activeViewMatrix} y \code{activeFov} & Seleccionan la vista y el campo visual segun el modo de camara. Separan la logica de input de la preparacion de matrices. \\
+\hline
+\code{PorscheCar::update} & Calcula la rotacion acumulada de ruedas usando \code{deltaTime} y velocidad actual. Luego actualiza las cuatro matrices de rueda. \\
+\hline
+\code{BloqueCiudad::}\\\code{setLayerOffsets} & Aplica traslaciones en Z a capas de ciudad. Es la base del movimiento tipo carretera infinita y del parallax entre objetos cercanos y fondo. \\
+\end{longtable}
+
+\section{Flujo de ejecucion}
+
+El flujo de \path{main.cpp} se resume asi:
+
+\begin{lstlisting}
+Inicializar GLFW y crear ventana
+Cargar GLAD y activar depth test
+Cargar ciudad, Porsche y cielo
+Configurar sistema de camaras
+
+while ventana abierta:
+    calcular deltaTime con glfwGetTime()
+    procesar input
+    actualizar animacion, ruedas y frenado
+    limpiar y registrar luces
+    subir proyeccion y vista
+    dibujar cielo, ciudad y Porsche
+    intercambiar buffers
+\end{lstlisting}
+
+El render usa \code{GL_DEPTH_TEST} con \code{GL_LESS}. Tambien se desactiva \code{GL_CULL_FACE}, lo que ayuda a visualizar modelos importados incluso cuando alguna cara tiene orientacion irregular. La proyeccion se actualiza cada frame con \code{setProjectionMatrix(perspective(...))} y la vista con \code{setViewMatrix(activeViewMatrix(cameras))}.
+
+El orden del frame evita estados obsoletos. Primero se procesa el input para que la camara y la pausa respondan antes de dibujar. Luego se calcula la animacion del auto y las capas. Despues se limpian las luces con \code{clearLights}; esto es importante porque las luces no se acumulan indefinidamente entre frames. Finalmente se registran ambiente, niebla, luces direccionales y spotlights antes de que cualquier malla iluminada se dibuje.
+
+El framebuffer se limpia con color y profundidad. El cielo se dibuja primero porque representa fondo; despues se dibuja la ciudad, que agrega luces de postes y emisores; finalmente se dibuja el Porsche. En el vehiculo, los cristales se dibujan despues de las piezas opacas y con escritura de profundidad desactivada para evitar que un vidrio transparente bloquee visualmente elementos posteriores.
+
+Los estados de OpenGL se cambian de forma puntual. \code{GL_DEPTH_TEST} queda activo para la escena principal, mientras que el cielo lo desactiva temporalmente porque siempre debe comportarse como fondo. Para transparencias se activa \code{GL_BLEND}; en cristales se usa mezcla alfa tradicional y en halos/haces se usa blending aditivo. Esta separacion evita que un efecto visual como el halo del sol oscurezca la escena o que un vidrio escriba profundidad como si fuera opaco.
+
+\begin{longtable}{L{0.30\linewidth}L{0.64\linewidth}}
+\textbf{Estado o llamada} & \textbf{Motivo de uso} \\
+\hline
+\code{glEnable(GL_DEPTH_TEST)} & Permite que carretera, edificios y auto se oculten correctamente segun profundidad. \\
+\hline
+\code{glDisable(GL_CULL_FACE)} & Hace visible geometria importada aunque alguna cara tenga orientacion inconsistente. \\
+\hline
+\code{glDepthMask(GL_FALSE)} & Evita que objetos transparentes o glow bloqueen objetos dibujados posteriormente. \\
+\hline
+\code{glBlendFunc(GL_SRC_ALPHA, GL_ONE)} & Suma color para halos, haces y emisores, generando apariencia luminosa. \\
+\hline
+\code{glViewport(...)} & Se actualiza en el callback de framebuffer para mantener la proyeccion ajustada al tamano real. \\
+\end{longtable}
+
+\section{Transformaciones y camaras}
+
+El sistema matematico usa matrices 4x4 en formato column-major. La composicion comun es:
+
+\begin{lstlisting}
+T * Rz * Ry * Rx * S
+\end{lstlisting}
+
+Esto aplica escala en espacio local, luego rotaciones y finalmente traslacion. En \path{objetos.h}, \code{makeTransform} centraliza la conversion de coordenadas exportadas desde Blender: posicion OpenGL como \code{(X, Z, -Y)}, escala como \code{(ScaleX, ScaleZ, ScaleY)} y rotaciones adaptadas al sistema de ejes del proyecto.
+
+La camara usa proyeccion perspectiva con planos \code{0.1} y \code{350.0}. \code{CameraSystem} ofrece seis vistas: general, conductor, superior, lateral izquierda, lateral derecha y libre. Las vistas fijas usan \code{lookAt}; las vistas general y conductor permiten yaw/pitch limitados, y la camara libre usa WASD/QE y mouse para navegar como en un entorno de primera persona.
+
+La funcion \code{lookAt} construye la base de la camara con tres vectores: \code{f} como direccion frontal normalizada, \code{s} como eje lateral por producto cruz y \code{u} como eje vertical corregido. Luego escribe estos ejes en una matriz column-major y calcula la traslacion con productos punto. Esta implementacion es importante porque el resto del motor asume el mismo orden de memoria que OpenGL.
+
+En \code{CameraSystem}, las teclas \code{1-5} y \code{L} cambian el modo solo una vez por pulsacion mediante \code{pressedOnce}. Las camaras general y conductor no se mueven libremente: modifican offsets de yaw/pitch con limites para mantener una vista cinematica. La camara libre, en cambio, recentra el mouse en la ventana, mide el desplazamiento contra el centro y actualiza yaw/pitch con \code{Camera::rotateFromMouse}. El scroll modifica el FOV entre 20 y 75 grados.
+
+\section{Carga de modelos y texturas}
+
+\code{GenShape} carga los OBJ leyendo posiciones \code{v}, coordenadas UV \code{vt}, normales \code{vn} y caras \code{f}. Las caras con mas de tres vertices se triangulan; si falta una normal, se genera con producto cruz. Luego la geometria se sube al GPU como atributos intercalados: posicion, color, normal y UV. En \path{draw2D.h}, \code{uploadLit} asigna estos datos a los atributos 0, 1, 2 y 3 del VAO.
+
+Las texturas se cargan con \code{loadTexture2D}, que utiliza \code{stbi_load}. Las opciones permiten invertir la imagen verticalmente, usar formato sRGB, controlar mipmaps y elegir entre \code{GL_REPEAT} o \code{GL_CLAMP_TO_EDGE}. El Porsche toma sus mapas desde \path{Models/Porsche/Textures/}; la ciudad desde \path{Models/Road/Texture/}; y el cielo desde \path{Models/Sky_Synthwave_Stars.png}.
+
+La ruta de carga de OBJ tiene dos detalles relevantes. Primero, si la ruta directa falla, \code{GenShape} intenta resolverla relativa al directorio de la cabecera; esto facilita ejecutar el binario desde carpetas distintas. Segundo, el parser acepta indices positivos y negativos de OBJ, lo que permite usar archivos exportados por herramientas que referencian vertices de forma relativa. El resultado final no conserva la estructura de materiales del OBJ, pero si conserva normales y UV, que son suficientes para aplicar texturas y luces definidas por codigo.
+
+En texturas, \code{TextureOptions::srgb} permite subir mapas difusos como \code{GL_SRGB} o \code{GL_SRGB_ALPHA}. En el Porsche se usa esta ruta para que los colores de textura se comporten mejor bajo iluminacion. Para hojas y texturas con alfa, el proyecto combina textura RGBA con \code{alphaCutoff}; para la carretera y veredas se usa textura opaca con wrapping controlado.
+
+El formato final de vertice para mallas iluminadas ocupa 12 flotantes. La posicion local define la geometria, el color por vertice permite tintes simples, la normal alimenta el calculo de luz y las UV permiten muestrear mapas difusos:
+
+\begin{lstlisting}
+layout(location = 0) vec3 aPos;
+layout(location = 1) vec4 aColor;
+layout(location = 2) vec3 aNormal;
+layout(location = 3) vec2 aTexCoord;
+\end{lstlisting}
+
+Esta organizacion permite que las primitivas generadas por codigo y los OBJ importados pasen por el mismo camino de render. Si una forma no tiene normales o material iluminado, \code{Shape::draw} usa un shader mas simple; si tiene normales y \code{lightingEnabled}, se usa el shader Blinn-Phong.
+
+\section{Iluminacion, materiales y niebla}
+
+La iluminacion se basa en Blinn-Phong. Cada material contiene ambiente, difuso, especular, emisivo, brillo, opacidad, recorte alfa y textura difusa. El shader combina ambiente global, iluminacion difusa, reflejo especular, emisividad, atenuacion por distancia, suavizado de spotlights y niebla.
+
+En cada frame se llama a \code{clearLights} y luego se vuelven a registrar las luces activas. La escena usa ambiente global \code{(0.20, 0.20, 0.22)}, niebla con color \code{(0.32, 0.33, 0.44)}, rango \code{2.0-100.0} y dos luces direccionales neon: magenta y cian, ambas con intensidad \code{1.2}.
+
+Los postes agregan spotlights desde \code{LightPostObjects}: intensidad \code{3.2}, angulo interno de 20 grados, externo de 62 grados y rango 20. Ademas, dibujan emisores visibles con un panel luminoso y \code{GlowCone}. \code{MAX_LIGHTS} vale 12; normalmente se usan 2 direccionales y 8 spotlights, por lo que la escena queda dentro del limite del shader.
+
+Para hojas y texturas con transparencia se usa \code{alphaCutoff}; los fragmentos con alfa bajo se descartan. Para cristales, halos, haces de luz y semaforo se usa blending, desactivando temporalmente la escritura al depth buffer con \code{glDepthMask(GL_FALSE)} cuando corresponde.
+
+El vertex shader iluminado transforma la posicion local con \code{uModel} y calcula la normal con \code{mat3(transpose(inverse(uModel)))}. Esto evita que escalas no uniformes deformen la direccion de las normales. En el fragment shader, la luz direccional usa \code{-direction}; las luces puntuales y spotlights calculan el vector desde el fragmento hasta la posicion de luz. La especularidad usa el vector medio \code{H = normalize(L + V)}, propio de Blinn-Phong.
+
+La atenuacion de luces no direccionales depende de la distancia normalizada al rango de la luz. Para spotlights se multiplica ademas por una transicion suave entre \code{innerCutoff} y \code{outerCutoff}. La niebla mezcla el color calculado con \code{fogColor} segun la distancia en espacio de vista; por eso los edificios y carretera se integran al ambiente nocturno en lugar de cortar abruptamente contra el fondo.
+
+Los materiales mas importantes no se definen por archivo MTL, sino por grupo visual. La siguiente tabla resume la intencion tecnica de cada conjunto:
+
+\begin{longtable}{L{0.28\linewidth}L{0.66\linewidth}}
+\textbf{Grupo} & \textbf{Configuracion visual} \\
+\hline
+Pintura del Porsche & Material sin mapa difuso principal, con especularidad alta y \code{shininess = 96.0}. Busca reflejo fuerte sobre la carroceria. \\
+\hline
+Ruedas y piezas internas & Materiales texturizados con mapas PNG. Mantienen detalle visual sin modelar cada pequeno patron en geometria. \\
+\hline
+Cristales & Material con opacidad parcial y especularidad alta. Se dibuja con alpha blending y sin escribir profundidad. \\
+\hline
+Hojas de arboles & Texturas RGBA con \code{alphaCutoff}; se recortan pixeles transparentes para evitar planos rectangulares visibles. \\
+\hline
+Postes, sol y ventanas & Materiales emisivos o geometria con blending aditivo para producir brillo visible en la escena nocturna. \\
+\end{longtable}
+
+\section{Ciudad y Porsche}
+
+La ciudad esta encapsulada en \code{Objetos::BloqueCiudad}. El patron usado es cargar un OBJ base una vez y dibujarlo varias veces con distintas matrices mediante \code{RepeatedModel}. Asi se reutilizan modelos de carretera, veredas, bancas, postes, arboles, edificios, semaforo y construcciones sin duplicar toda la geometria en codigo.
+
+\code{BloqueCiudad} separa dos capas: \code{capa_cerca}, para carretera y objetos cercanos; y \code{capa_media}, para edificios de fondo. \code{setLayerOffsets(nearZ, mediumZ)} mueve ambas capas en Z. En el loop principal, \code{aniBloq1} controla la capa cercana y \code{aniBloq2} la media; como se desplazan a velocidades distintas, se obtiene sensacion de avance y profundidad. Al superar el umbral, las capas vuelven al inicio para simular continuidad.
+
+\code{PorscheCar} carga el vehiculo por piezas: pintura, base, carbono, cristales, motor, rejillas, interior, luces, placa, parabrisas y ruedas. Las piezas se agrupan en \code{opaqueGroup}, \code{wheelGroup} y \code{glassGroup}. La pintura usa un material especular con \code{shininess = 96.0}; las ruedas y partes internas usan mapas difusos; los cristales se dibujan al final con alpha blending para conservar transparencia.
+
+La rotacion de las ruedas se actualiza con:
+
+\begin{lstlisting}
+wheelRotation += speed * deltaTime * wheelRotationFactor;
+\end{lstlisting}
+
+Cada rueda combina traslacion, rotacion lateral, giro sobre X y una pequena compensacion del eje local para evitar que el modelo parezca tambalear.
+
+En la ciudad, los postes tienen una doble representacion: como geometria OBJ iluminada y como fuente visual. \code{LightPostObjects::addLights} calcula la posicion real del foco transformando un punto local del poste a mundo y crea un spotlight apuntando hacia la carretera. \code{drawEmitters} dibuja el panel brillante y el \code{GlowCone}; este ultimo no ilumina por si mismo, pero comunica visualmente el haz de luz y aprovecha la niebla para verse integrado.
+
+El semaforo usa el modelo OBJ para la estructura y tres circulos 2D colocados en el espacio 3D para las luces. \code{TrafficLigthObjects::signalState} evalua \code{fmod(animationTime, 10.0f)} y decide verde, amarillo o rojo. Las luces inactivas no desaparecen; se dibujan con brillo reducido para mantener la forma del semaforo.
+
+El Porsche divide piezas por material para controlar mejor el resultado. La carroceria y las piezas opacas se dibujan primero; las ruedas se actualizan con matrices independientes; el parabrisas se coloca en \code{glassGroup} y se dibuja con \code{enableAlphaBlending}. Esta separacion evita mezclar transparencia con partes opacas y permite que la rotacion de ruedas no afecte al resto del auto.
+
+La ciudad no crea una clase generica compleja para todos los objetos. En su lugar, cada categoria tiene una clase pequena con su ruta OBJ, su material y sus matrices. Esta decision mantiene el codigo explicito: al revisar \code{RoadObjects}, \code{LightPostObjects} o \code{TrafficLigthObjects} se ve inmediatamente que recurso carga, que textura usa y en que posiciones se instancia. Para un proyecto academico esto es mas entendible que una escena completamente data-driven.
+
+Las ventanas iluminadas se generan como rectangulos pequenos colocados sobre las fachadas. \code{CityWindowLights} calcula posiciones a partir de especificaciones por edificio, decide que ventanas se encienden con un hash determinista y asigna colores variados. No son luces reales dentro del shader; son superficies aditivas que sugieren vida urbana sin consumir mas entradas del arreglo \code{MAX_LIGHTS}.
+
+\section{Cielo, animaciones y controles}
+
+\code{Sky} genera un domo semiesferico con vertices procedurales y carga \path{Sky_Synthwave_Stars.png}. El cielo se dibuja sin depth test y sin escribir profundidad; luego se dibuja el sol como esfera emisiva y un \code{GlowHalo} con blending aditivo. La niebla se desactiva temporalmente para el fondo y se restaura despues.
+
+Las animaciones son manuales y dependen de \code{deltaTime}. \code{animationTime} acumula el tiempo global; la barra espaciadora pausa o reanuda. El semaforo sigue un ciclo de 10 segundos: verde de 0 a 5, amarillo de 5 a 7 y rojo de 7 a 10. Si el semaforo esta adelante y no esta verde, el \code{speedMultiplier} baja hacia cero; al liberarse, vuelve progresivamente a 1.
+
+Controles principales: \code{ESC} cierra, \code{SPACE} pausa, \code{1-5} cambian entre camaras fijas, \code{L} activa camara libre, \code{W/A/S/D} y flechas ajustan vistas o movimiento, \code{Q/E} suben y bajan en camara libre, el mouse controla la orientacion y el scroll ajusta el FOV.
+
+El cielo usa una geometria generada en \code{Sky::createSkyDome}. Los vertices se distribuyen por stacks y slices; las UV cubren horizontalmente el domo y ajustan verticalmente la textura para aprovechar mejor la imagen. El shader propio mezcla la textura original con una version desplazada en U cerca de la union, reduciendo la costura visual del mapa panoramico.
+
+La animacion del avance no mueve el Porsche en Z; mueve el mundo alrededor de el. \code{aniBloq1} avanza la capa cercana y \code{aniBloq2} avanza la capa media a una fraccion de la velocidad. Esto genera la ilusion de desplazamiento continuo con el vehiculo como referencia visual fija. Cuando una capa supera el limite, se reinicia a una posicion anterior para que la carretera parezca repetirse.
+
+El frenado combina el estado del semaforo con una distancia estimada al punto de cruce. Si la luz no esta verde y el semaforo esta delante dentro de 15 unidades, \code{targetMultiplier} pasa a cero; si no, vuelve a uno. La variable \code{speedMultiplier} interpola hacia ese objetivo con una tasa mayor al frenar que al acelerar, lo que da un comportamiento mas natural que un cambio instantaneo.
+
+\section{Trazabilidad visual y tecnica}
+
+La escena puede entenderse como una correspondencia entre elementos visibles y decisiones de implementacion. Esto ayuda a ubicar rapidamente donde se produce cada efecto:
+
+\begin{longtable}{L{0.28\linewidth}L{0.66\linewidth}}
+\textbf{Elemento visible} & \textbf{Implementacion relevante} \\
+\hline
+Carretera en movimiento & \code{BloqueCiudad::setLayerOffsets} desplaza \code{capa_cerca}; el reinicio del offset en \path{main.cpp} evita que el camino se termine visualmente. \\
+\hline
+Profundidad urbana & \code{capa_media} avanza mas lento que \code{capa_cerca}. Esta diferencia crea parallax sin mover la camara ni el auto. \\
+\hline
+Ambiente nocturno cyberpunk & Dos luces direccionales coloreadas, materiales emisivos, ventanas aditivas, cielo texturizado y niebla azulada forman la paleta visual. \\
+\hline
+Semaforo funcional & \code{TrafficLigthObjects} dibuja el estado visible; \path{main.cpp} usa el mismo tiempo de ciclo para decidir si el vehiculo debe frenar. \\
+\hline
+Vidrios y halos & Se renderizan con blending y \code{glDepthMask(GL_FALSE)} para que sean transparentes o luminosos sin corromper el depth buffer. \\
+\hline
+Ruedas animadas & \code{PorscheCar::update} acumula rotacion proporcional a velocidad y \code{updateWheelTransforms} aplica la matriz individual a cada rueda. \\
+\hline
+\end{longtable}
+
+La ventaja de esta organizacion es que cada efecto importante tiene un punto claro de control. Las luces reales estan en el sistema de iluminacion; los brillos decorativos son geometria aditiva; el movimiento de mundo esta en offsets de capa; y la interaccion se concentra en \code{CameraSystem} y en el loop principal. Esta separacion reduce acoplamiento y facilita explicar el proyecto desde el codigo.
+
+\section{Aspectos tecnicos}
+
+El orden de dibujo es importante: primero se limpia el frame, luego se dibuja el cielo sin depth test, despues la ciudad opaca, los elementos glow y finalmente el Porsche con cristales al final de su propio metodo. Esto reduce errores de transparencia y aprovecha el depth buffer para los objetos solidos.
+
+El instanciado es manual: un mismo \code{GenShape} se dibuja varias veces cambiando su matriz de modelo. Es una solucion simple y clara para el proyecto, aunque una version mas optimizada podria usar \code{glDrawElementsInstanced}. Tambien podria activarse \code{GL_CULL_FACE} si se corrige la orientacion de todos los modelos.
+
+Una decision importante es no usar instancing por GPU. El costo de cambiar matrices y redibujar objetos repetidos es aceptable para el tamano academico de la escena y hace que la implementacion sea mas facil de seguir. Si se buscara escalar a cientos o miles de objetos, el siguiente paso seria agrupar matrices en un buffer de instancias y usar \code{glDrawElementsInstanced}.
+
+Otra decision es mantener materiales en C++. Esto evita depender de diferencias entre exportadores MTL y permite ajustar rapidamente el aspecto cyberpunk: luces neon, emisividad, cristales, halos y niebla. La desventaja es que al agregar nuevas piezas se debe crear o asignar manualmente su material y textura.
+
+El proyecto tambien separa lo visual de lo fisico de manera practica. Por ejemplo, un poste agrega un spotlight que afecta la iluminacion real y ademas dibuja un cono transparente que representa el haz. El semaforo usa circulos brillantes para mostrar estado, pero el frenado del auto se decide por tiempo y distancia calculada en \path{main.cpp}. Esta separacion simplifica el control de la escena: la parte visible comunica el estado y la logica mantiene la animacion.
+
+\section{Conclusion}
+
+\textbf{Cyberpunk Velocity} integra una escena 3D completa con una arquitectura entendible: \code{main.cpp} coordina el loop, \code{CameraSystem.h} maneja vistas e input, \code{objetos.h} construye la ciudad, \code{Porsche.h} encapsula el vehiculo, \code{Sky.h} controla el fondo y \code{draw2D}/\code{draw3D}/\code{lighting} proveen la base grafica. El resultado demuestra transformaciones, camaras, carga de mallas, texturizado, materiales, iluminacion, blending, niebla y animacion temporal dentro de una misma aplicacion.
+
+\end{document}

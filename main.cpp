@@ -89,7 +89,12 @@ int main() {
 	float aniBloq1 = -51.0f;
 	float aniBloq2 = -51.0f;
 	float speedMultiplier = 1.0f;
-	float animationTime   = 0.0f;
+	float trafficLightTime = 0.0f;
+	int trafficLightIndex = 0;
+	bool trafficLightCounted = false;
+	bool stopSequenceActive = false;
+	bool stopSequenceFinished = false;
+	float stopSequenceTime = 0.0f;
 	bool hasLigths = false;
 	bool animationPaused = false;
 	bool spaceWasPressed = false;
@@ -112,24 +117,48 @@ int main() {
         spaceWasPressed = spacePressed;
 
         if (!animationPaused) {
-            animationTime += deltaTime;
-            float cycleTime = std::fmod(animationTime, 10.0f);
-
             // Semaforo en z=15: world_Z = aniBloq1-15, camara en Z=12
             // distancia = 12-(aniBloq1-15) = 27-aniBloq1
-            bool  lightIsGreen      = (cycleTime < 5.0f);
             float trafficLightAhead = 27.0f - aniBloq1;
+            bool stopAtThisTrafficLight = (trafficLightIndex % 2) == 1;
+            bool trafficLightNear = trafficLightAhead > 0.0f && trafficLightAhead < 18.0f;
 
-            bool shouldBrake = !lightIsGreen
-                             && (trafficLightAhead > 0.0f)
-                             && (trafficLightAhead < 15.0f);
+            if (trafficLightAhead > 20.0f) {
+                trafficLightCounted = false;
+                stopSequenceActive = false;
+                stopSequenceFinished = false;
+                stopSequenceTime = 0.0f;
+            }
 
-            float targetMultiplier = shouldBrake ? 0.0f : 1.0f;
+            if (stopAtThisTrafficLight && trafficLightNear && !stopSequenceActive && !stopSequenceFinished) {
+                stopSequenceActive = true;
+                stopSequenceTime = 0.0f;
+            }
+
+            if (stopSequenceActive) {
+                stopSequenceTime += deltaTime;
+                trafficLightTime = 5.0f + stopSequenceTime;
+
+                if (stopSequenceTime >= 5.0f) {
+                    stopSequenceActive = false;
+                    stopSequenceFinished = true;
+                    trafficLightTime = 0.0f;
+                }
+            } else {
+                trafficLightTime = 0.0f;
+            }
+
+            float targetMultiplier = stopSequenceActive ? 0.0f : 1.0f;
             float lerpRate = (targetMultiplier > speedMultiplier) ? 1.5f : 4.5f;
             speedMultiplier += (targetMultiplier - speedMultiplier) * lerpRate * deltaTime;
             speedMultiplier = std::max(0.0f, std::min(1.0f, speedMultiplier));
 
             porsche.update(deltaTime, normalCarSpeed * speedMultiplier);
+
+            if (!trafficLightCounted && trafficLightAhead <= 0.0f) {
+                ++trafficLightIndex;
+                trafficLightCounted = true;
+            }
         }
 
         clearLights();
@@ -171,24 +200,19 @@ int main() {
 
         sky.draw(effects);
 
-		if (!animationPaused) {
-			aniBloq1 += maxSpeed1 * speedMultiplier * deltaTime;
-			if (aniBloq1 >= 85.0f) aniBloq1 = -51.0f;
-			aniBloq2 += maxSpeed2 * speedMultiplier * deltaTime;
-			if (aniBloq2 >= 85.0f) aniBloq2 = -51.0f;
-		}
+        if (!animationPaused) {
+            aniBloq1 += maxSpeed1 * speedMultiplier * deltaTime;
+            if (aniBloq1 >= 85.0f) aniBloq1 = -51.0f;
+            aniBloq2 += maxSpeed2 * speedMultiplier * deltaTime;
+            if (aniBloq2 >= 85.0f) aniBloq2 = -51.0f;
+        }
 
-			ciudad.setLayerOffsets(aniBloq1, aniBloq2);
-			ciudad.draw(true, animationTime, true);
-
-			if (aniBloq1 >= -50.0f) {
-				ciudad.setLayerOffsets(aniBloq1 - 136.0f, aniBloq2 - 136.0f);
-				ciudad.draw(false, animationTime, false);
-			}
+        ciudad.setLayerOffsets(aniBloq1, aniBloq2);
+        ciudad.draw(true, trafficLightTime, true);
 
         if (aniBloq1 >= -50.0f) {
             ciudad.setLayerOffsets(aniBloq1 - 136.0f, aniBloq2 - 136.0f);
-            ciudad.draw(false, animationTime);
+            ciudad.draw(false, trafficLightTime, false);
         }
 
         if (porsche.loaded()) {
@@ -202,7 +226,19 @@ int main() {
     return 0;
 }
 
-void framebufferSizeCallback(GLFWwindow* window, int width, int height);
-static 
-float getFramebufferAspect(GLFWwindow* window);
-static 
+static void framebufferSizeCallback(GLFWwindow* window, int width, int height) {
+    (void)window;
+    glViewport(0, 0, width, height);
+}
+
+static float getFramebufferAspect(GLFWwindow* window) {
+    int width = 1;
+    int height = 1;
+
+    glfwGetFramebufferSize(window, &width, &height);
+
+    if (width <= 0) width = 1;
+    if (height <= 0) height = 1;
+
+    return static_cast<float>(width) / static_cast<float>(height);
+}
