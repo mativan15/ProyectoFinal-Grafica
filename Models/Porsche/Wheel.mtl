@@ -1,27 +1,7 @@
-# Blender 5.1.2 MTL File: 'wheel_bake.blend'
+# Blender 5.1.2 MTL File: 'Pistas.blend'
 # www.blender.org
 
-newmtl BL_RIM
-Ns 200.000000
-Ka 1.000000 1.000000 1.000000
-Kd 0.000000 0.000000 0.000000
-Ks 1.000000 1.000000 1.000000
-Ke 0.000000 0.000000 0.000000
-Ni 1.500000
-d 1.000000
-illum 2
-
-newmtl CHR_RIM
-Ns 200.000000
-Ka 1.000000 1.000000 1.000000
-Kd 0.500000 0.500000 0.500000
-Ks 1.000000 1.000000 1.000000
-Ke 0.000000 0.000000 0.000000
-Ni 1.500000
-d 1.000000
-illum 2
-
-newmtl Porsche_911Targa4SRewardRecycled_2021_CallipersCalliperGloss_Material
+newmtl Porsche_918SpyderRewardRecycled_2015CalliperGloss_Material.006
 Ns 200.000000
 Ka 1.000000 1.000000 1.000000
 Kd 1.000000 1.000000 1.000000
@@ -31,13 +11,13 @@ Ni 1.500000
 d 1.000000
 illum 2
 
-newmtl Porsche_911Targa4SRewardRecycled_2021_Wheel1A_3D_3DWheel1B_Material
-Ns 200.000000
+newmtl p:Porsche_918SpyderRewardRecycled_2015_Wheel1A_3D_3DWheel_8a77b1f1.006
+Ns 1000.000000
 Ka 1.000000 1.000000 1.000000
 Ks 1.000000 1.000000 1.000000
 Ke 0.000000 0.000000 0.000000
 Ni 1.500000
 illum 2
-map_Kd C:/Porsche_911Targa4S_2021_Wheel1B_DiffuseAOSO.png
-map_d C:/Porsche_911Targa4S_2021_Wheel1B_DiffuseAOSO.png
-map_Bump -bm 1.000000 C:/Porsche_911Targa4S_2021_Wheel1A_Normal.png
+map_Kd C:/Users/Pochano/Documents/Modelos/Porsche/C:/Porsche_918Spyder_2015_Wheel2A_DiffuseAOSO.png
+map_d C:/Users/Pochano/Documents/Modelos/Porsche/C:/Porsche_918Spyder_2015_Wheel2A_DiffuseAOSO.png
+map_Bump -bm 1.000000 C:/Users/Pochano/Documents/Modelos/Porsche/C:/Porsche_918Spyder_2015_Wheel2A_Normal.png
