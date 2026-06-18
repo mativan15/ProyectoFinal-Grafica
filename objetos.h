@@ -904,11 +904,11 @@ public:
         capa_media.transform.matrix = Mat4::translate3D(0.0f, 0.0f, mediumZ);
     }
 
-    void draw() {
+    void draw(bool addLights = true) {
         const Mat4 nearLayer = capa_cerca.transform.matrix;
         const Mat4 mediumLayer = capa_media.transform.matrix;
 
-        lightPosts.addLights(nearLayer);
+        if (addLights) lightPosts.addLights(nearLayer);
 
         // Capa media lenta / fondo
         backTowers.draw(mediumLayer);
