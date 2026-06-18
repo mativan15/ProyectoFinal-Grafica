@@ -6,7 +6,7 @@
 #include <cmath>
 
 // -----------------------------------------------------------------------------
-// Minimal vector math for camera/view calculations.
+// Vector basico para camara.
 // -----------------------------------------------------------------------------
 class Vec3 {
 public:
@@ -15,10 +15,21 @@ public:
     float z = 0.0f;
 };
 
-inline Vec3 operator+(const Vec3& a, const Vec3& b) { return {a.x + b.x, a.y + b.y, a.z + b.z}; }
-inline Vec3 operator-(const Vec3& a, const Vec3& b) { return {a.x - b.x, a.y - b.y, a.z - b.z}; }
-inline Vec3 operator*(const Vec3& v, float s) { return {v.x * s, v.y * s, v.z * s}; }
-inline Vec3 operator/(const Vec3& v, float s) { return {v.x / s, v.y / s, v.z / s}; }
+inline Vec3 operator+(const Vec3& a, const Vec3& b) {
+    return {a.x + b.x, a.y + b.y, a.z + b.z};
+}
+
+inline Vec3 operator-(const Vec3& a, const Vec3& b) {
+    return {a.x - b.x, a.y - b.y, a.z - b.z};
+}
+
+inline Vec3 operator*(const Vec3& v, float s) {
+    return {v.x * s, v.y * s, v.z * s};
+}
+
+inline Vec3 operator/(const Vec3& v, float s) {
+    return {v.x / s, v.y / s, v.z / s};
+}
 
 inline float dot(const Vec3& a, const Vec3& b) {
     return a.x * b.x + a.y * b.y + a.z * b.z;
@@ -32,7 +43,9 @@ inline Vec3 cross(const Vec3& a, const Vec3& b) {
     };
 }
 
-inline float length(const Vec3& v) { return std::sqrt(dot(v, v)); }
+inline float length(const Vec3& v) {
+    return std::sqrt(dot(v, v));
+}
 
 inline Vec3 normalize(const Vec3& v) {
     const float len = length(v);
@@ -45,33 +58,43 @@ inline float radians(float deg) {
 }
 
 // -----------------------------------------------------------------------------
-// gluLookAt equivalent (column-major, OpenGL style).
-// Returns view matrix that transforms world -> camera space.
+// LookAt estilo OpenGL.
 // -----------------------------------------------------------------------------
 inline Mat4 lookAt(const Vec3& eye, const Vec3& center, const Vec3& up) {
-    const Vec3 f = normalize(center - eye);     // forward
-    const Vec3 s = normalize(cross(f, up));     // right
-    const Vec3 u = cross(s, f);                 // corrected up
+    const Vec3 f = normalize(center - eye);
+    const Vec3 s = normalize(cross(f, up));
+    const Vec3 u = cross(s, f);
 
     Mat4 view = Mat4::identity();
-    view.m[0] = s.x;   view.m[1] = s.y;   view.m[2] = s.z;
-    view.m[4] = u.x;   view.m[5] = u.y;   view.m[6] = u.z;
-    view.m[8] = -f.x;  view.m[9] = -f.y;  view.m[10] = -f.z;
+
+    // IMPORTANTE:
+    // Esta version usa el orden correcto para matrices column-major,
+    // igual que tu proyecto anterior.
+    view.m[0] = s.x;
+    view.m[4] = s.y;
+    view.m[8] = s.z;
+
+    view.m[1] = u.x;
+    view.m[5] = u.y;
+    view.m[9] = u.z;
+
+    view.m[2] = -f.x;
+    view.m[6] = -f.y;
+    view.m[10] = -f.z;
 
     view.m[12] = -dot(s, eye);
     view.m[13] = -dot(u, eye);
-    view.m[14] =  dot(f, eye);
+    view.m[14] = dot(f, eye);
+
     return view;
 }
 
-// Alias with familiar OpenGL naming.
 inline Mat4 gluLookAt(const Vec3& eye, const Vec3& center, const Vec3& up) {
     return lookAt(eye, center, up);
 }
 
 // -----------------------------------------------------------------------------
-// gluPerspective equivalent.
-// fovyDeg: vertical FOV in degrees, aspect: width/height.
+// Perspective.
 // -----------------------------------------------------------------------------
 inline Mat4 perspective(float fovyDeg, float aspect, float zNear, float zFar) {
     const float f = 1.0f / std::tan(radians(fovyDeg) * 0.5f);
@@ -82,6 +105,7 @@ inline Mat4 perspective(float fovyDeg, float aspect, float zNear, float zFar) {
     p.m[10] = (zFar + zNear) / (zNear - zFar);
     p.m[11] = -1.0f;
     p.m[14] = (2.0f * zFar * zNear) / (zNear - zFar);
+
     return p;
 }
 
@@ -90,12 +114,16 @@ inline Mat4 gluPerspective(float fovyDeg, float aspect, float zNear, float zFar)
 }
 
 // -----------------------------------------------------------------------------
-// Orthographic projection equivalent.
-// left/right/bottom/top define the visible box in world units.
+// Orthographic.
 // -----------------------------------------------------------------------------
-inline Mat4 orthographic(float left, float right,
-                        float bottom, float top,
-                        float zNear, float zFar) {
+inline Mat4 orthographic(
+    float left,
+    float right,
+    float bottom,
+    float top,
+    float zNear,
+    float zFar
+) {
     Mat4 p = Mat4::identity();
 
     p.m[0] = 2.0f / (right - left);
@@ -105,6 +133,7 @@ inline Mat4 orthographic(float left, float right,
     p.m[12] = -(right + left) / (right - left);
     p.m[13] = -(top + bottom) / (top - bottom);
     p.m[14] = -(zFar + zNear) / (zFar - zNear);
+
     return p;
 }
 
@@ -113,9 +142,20 @@ inline Mat4 ortho2D(float left, float right, float bottom, float top) {
 }
 
 // -----------------------------------------------------------------------------
-// Simple FPS-like camera helper.
+// Camara libre tipo videojuego.
+// Mouse: solo cambia direccion.
+// W/S: avanza/retrocede usando front completo, incluyendo Y.
+// A/D: movimiento lateral.
+// Q/E: baja/sube verticalmente.
 // -----------------------------------------------------------------------------
-enum class CameraMove { Forward, Backward, Left, Right, Up, Down };
+enum class CameraMove {
+    Forward,
+    Backward,
+    Left,
+    Right,
+    Up,
+    Down
+};
 
 class Camera {
 public:
@@ -131,56 +171,84 @@ public:
     float mouseSensitivity = 0.1f;
     float zoomFovDeg = 45.0f;
 
-    Camera() { updateVectors(); }
-    explicit Camera(const Vec3& startPos) : position(startPos) { updateVectors(); }
-
-    Mat4 viewMatrix() const {
-        return lookAt(position, position + front, up);
-    }
-
-    void move(CameraMove dir, float deltaTime) {
-        const float v = moveSpeed * deltaTime;
-        if (dir == CameraMove::Forward)  position = position + front * v;
-        if (dir == CameraMove::Backward) position = position - front * v;
-        if (dir == CameraMove::Left)     position = position - right * v;
-        if (dir == CameraMove::Right)    position = position + right * v;
-        if (dir == CameraMove::Up)       position = position + worldUp * v;
-        if (dir == CameraMove::Down)     position = position - worldUp * v;
-    }
-
-    void rotateFromMouse(float xOffset, float yOffset, bool constrainPitch = true) {
-        xOffset *= mouseSensitivity;
-        yOffset *= mouseSensitivity;
-
-        yawDeg += xOffset;
-        pitchDeg += yOffset;
-
-        if (constrainPitch) {
-            if (pitchDeg > 89.0f) pitchDeg = 89.0f;
-            if (pitchDeg < -89.0f) pitchDeg = -89.0f;
-        }
+    Camera() {
         updateVectors();
     }
 
+    explicit Camera(const Vec3& startPos)
+        : position(startPos) {
+        updateVectors();
+    }
+
+	Mat4 viewMatrix() const {
+		return lookAt(position, position + front, up);
+	}
+
+	void move(CameraMove dir, float deltaTime) {
+		const float velocity = moveSpeed * deltaTime;
+
+		if (dir == CameraMove::Forward) {
+			position = position + front * velocity;
+		}
+
+		if (dir == CameraMove::Backward) {
+			position = position - front * velocity;
+		}
+
+		if (dir == CameraMove::Left) {
+			position = position - right * velocity;
+		}
+
+		if (dir == CameraMove::Right) {
+			position = position + right * velocity;
+		}
+
+		if (dir == CameraMove::Up) {
+			position = position + worldUp * velocity;
+		}
+
+		if (dir == CameraMove::Down) {
+			position = position - worldUp * velocity;
+		}
+	}
+
+	void rotateFromMouse(float xOffset, float yOffset, bool constrainPitch = true) {
+		xOffset *= mouseSensitivity;
+		yOffset *= mouseSensitivity;
+
+		yawDeg += xOffset;
+		pitchDeg += yOffset;
+
+		if (constrainPitch) {
+			if (pitchDeg > 89.0f) pitchDeg = 89.0f;
+			if (pitchDeg < -89.0f) pitchDeg = -89.0f;
+		}
+
+		updateVectors();
+	}
+
     void zoomFromScroll(float yOffset) {
         zoomFovDeg -= yOffset;
+
         if (zoomFovDeg < 1.0f) zoomFovDeg = 1.0f;
         if (zoomFovDeg > 90.0f) zoomFovDeg = 90.0f;
     }
 
 private:
-    void updateVectors() {
-        const float yaw = radians(yawDeg);
-        const float pitch = radians(pitchDeg);
-        Vec3 f{
-            std::cos(yaw) * std::cos(pitch),
-            std::sin(pitch),
-            std::sin(yaw) * std::cos(pitch)
-        };
-        front = normalize(f);
-        right = normalize(cross(front, worldUp));
-        up = normalize(cross(right, front));
-    }
+	void updateVectors() {
+		const float yaw = radians(yawDeg);
+		const float pitch = radians(pitchDeg);
+
+		Vec3 f{
+			std::cos(yaw) * std::cos(pitch),
+			std::sin(pitch),
+			std::sin(yaw) * std::cos(pitch)
+		};
+
+		front = normalize(f);
+		right = normalize(cross(front, worldUp));
+		up = normalize(cross(right, front));
+	}
 };
 
 #endif

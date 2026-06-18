@@ -113,11 +113,6 @@ inline Texture2D loadTexture(
 
     if (!texture.valid()) {
         std::cerr << "[Objetos] Error cargando textura: " << path << "\n";
-    } else {
-        std::cout << "[Objetos] Textura cargada: " << path
-                  << " ID=" << texture.id
-                  << " Size=" << texture.width << "x" << texture.height
-                  << " Channels=" << texture.channels << "\n";
     }
 
     return texture;
@@ -201,8 +196,6 @@ public:
         if (!model.loaded()) {
             std::cerr << "[Objetos] Error cargando OBJ: " << objPath
                       << " -> " << model.error() << "\n";
-        } else {
-            std::cout << "[Objetos] OBJ cargado: " << objPath << "\n";
         }
 
         model.color = {1.0f, 1.0f, 1.0f, 1.0f};
