@@ -30,6 +30,7 @@
 namespace Objetos {
 
 static constexpr float DEG_TO_RAD = 3.14159265f / 180.0f;
+static constexpr float sizeY_builds = 1.5f;
 
 // ---------------------------------------------------------
 // Helper para escribir transformaciones mas facil.
@@ -246,36 +247,34 @@ private:
 // transformaciones que dijiste. Reemplaza cada makeTransform
 // por tus valores convertidos desde Blender.
 // =========================================================
-
 class BackTowerObjects : public RepeatedModel {
 public:
     explicit BackTowerObjects(const std::string& dir)
         : RepeatedModel(dir + "back_tower.obj") {
         setMaterial(makeSimpleMaterial({0.22f, 0.22f, 0.25f, 1.0f}));
         setInstances({
-            makeTransform(-45.0464, -3.05723, -54.6141, 0, -180, 0, 1, 6.25632, 0.81), 
-            makeTransform(-45.0464, -2.27723, -41.4941, 0, -180, 0, 1, 6.25632, 0.81), 
-            makeTransform(-45.0464, -0.917226, -26.7941, 0, 0, 0, 1, 6.25632, 0.81), 
-            makeTransform(-45.0464, -2.07723 , -24.4441 , 0, 0, 0, 1, 4.64632, 1), 
-            makeTransform(-45.0464, -1.52723, -11.8041, 0, 0, 0, 1, 4.64632, 1), 
-            makeTransform(-45.0464, -0.257226, -2.87411, 0, -180, 0, 1, 3.92632, 0.81), 
-            makeTransform(-45.0464, -3.40723, 29.4959, 0, -180, 0, 1, 3.92632, 0.81), 
-            makeTransform(-45.0464, -2.10297, 39.6522, 0, -180, 0, 1, 6.25632, 0.81), 
-            makeTransform(-45.0464, -1.32297, 52.7722, 0, -180, 0, 1, 6.25632, 0.81), 
-            makeTransform(-45.0464, 0.037034, 67.4722, 0, 0, 0, 1, 6.25632, 0.81), 
-            makeTransform(-45.0464, -1.12297, 69.8222, 0, 0, 0, 1, 4.64632, 0.81),
+            makeTransform(-25.0464, -3.05723, -54.6141, 0, -180, 0, 1, 6.25632 * sizeY_builds, 0.81), 
+            makeTransform(-25.0464, -2.27723, -41.4941, 0, -180, 0, 1, 6.25632 * sizeY_builds, 0.81), 
+            makeTransform(-25.0464, -0.917226, -26.7941, 0, 0, 0, 1, 6.25632 * sizeY_builds, 0.81), 
+            makeTransform(-25.0464, -2.07723 , -24.4441 , 0, 0, 0, 1, 4.64632 * sizeY_builds, 1), 
+            makeTransform(-25.0464, -1.52723, -11.8041, 0, 0, 0, 1, 4.64632 * sizeY_builds, 1), 
+            makeTransform(-25.0464, -0.257226, -2.87411, 0, -180, 0, 1, 3.92632 * sizeY_builds, 0.81),
+            makeTransform(-25.0464, -3.40723, 29.4959, 0, -180, 0, 1, 3.92632 * sizeY_builds, 0.81), 
+            makeTransform(-25.0464, -2.10297, 39.6522, 0, -180, 0, 1, 6.25632 * sizeY_builds, 0.81), 
+            makeTransform(-25.0464, -1.32297, 52.7722, 0, -180, 0, 1, 6.25632 * sizeY_builds, 0.81), 
+            makeTransform(-25.0464, 0.037034, 67.4722, 0, 0, 0, 1, 6.25632 * sizeY_builds, 0.81), 
+            makeTransform(-25.0464, -1.12297, 69.8222, 0, 0, 0, 1, 4.64632 * sizeY_builds, 0.81),
 			
-            makeTransform(44.0464, -3.05723, -54.6141, 0, -180, 0, 1, 6.25632, 0.81), 
-            makeTransform(44.0464, -2.27723, -41.4941, 0, -180, 0, 1, 6.25632, 0.81), 
-            makeTransform(44.0464, -0.917226, -26.7941, 0, 0, 0, 1, 6.25632, 0.81), 
-            makeTransform(44.0464, -2.07723 , -24.4441 , 0, 0, 0, 1, 4.64632, 1), 
-            makeTransform(44.0464, -1.52723, -11.8041, 0, 0, 0, 1, 4.64632, 1), 
-            makeTransform(44.0464, -0.257226, -2.87411, 0, -180, 0, 1, 3.92632, 0.81), 
-            makeTransform(44.0464, -3.40723, 29.4959, 0, -180, 0, 1, 3.92632, 0.81), 
-            makeTransform(44.0464, -2.10297, 39.6522, 0, -180, 0, 1, 6.25632, 0.81), 
-            makeTransform(44.0464, -1.32297, 52.7722, 0, -180, 0, 1, 6.25632, 0.81), 
-            makeTransform(44.0464, 0.037034, 67.4722, 0, 0, 0, 1, 6.25632, 0.81), 
-            makeTransform(44.0464, -1.12297, 69.8222, 0, 0, 0, 1, 4.64632, 0.81)
+            makeTransform(24.0464, -3.05723, -54.6141, 0, -180, 0, 1, 6.25632 * sizeY_builds, 0.81), 
+            makeTransform(24.0464, -2.27723, -41.4941, 0, -180, 0, 1, 6.25632 * sizeY_builds, 0.81), 
+            makeTransform(24.0464, -0.917226, -26.7941, 0, 0, 0, 1, 6.25632 * sizeY_builds, 0.81), 
+            makeTransform(24.0464, -2.07723 , -24.4441 , 0, 0, 0, 1, 4.64632 * sizeY_builds, 1), 
+            makeTransform(24.0464, -1.52723, -11.8041, 0, 0, 0, 1, 4.64632 * sizeY_builds, 1), 
+            makeTransform(24.0464, -0.257226, -2.87411, 0, -180, 0, 1, 3.92632 * sizeY_builds, 0.81), 
+            makeTransform(24.0464, -3.40723, 29.4959, 0, -180, 0, 1, 3.92632 * sizeY_builds, 0.81), 
+            makeTransform(24.0464, -2.10297, 39.6522, 0, -180, 0, 1, 6.25632 * sizeY_builds, 0.81),
+            makeTransform(24.0464, 0.037034, 67.4722, 0, 0, 0, 1, 6.25632 * sizeY_builds, 0.81), 
+            makeTransform(24.0464, -1.12297, 69.8222, 0, 0, 0, 1, 4.64632 * sizeY_builds, 0.81)
 			
         });
     }
@@ -287,27 +286,27 @@ public:
         : RepeatedModel(dir + "back_construct.obj") {
         setMaterial(makeSimpleMaterial({0.28f, 0.26f, 0.24f, 1.0f}));
         setInstances({
-            makeTransform(-45.0464, 6.37432, -46.1906, 0, 0, 0, 1, 2.08916, 1), 
-            makeTransform(-45.0464, 3.64433, -35.4806, 0, 0, 0, 1, 2.08916, 1),
-            makeTransform(-45.0464, 4.55433, -9.6006, 0, 0, 0, 1, 1.42916, 1),
-            makeTransform(-45.0464, 4.1543, -0.890599, 0, 0, 0, 1, 1.16916, 1),
-            makeTransform(-45.0464, 5.88433, 6.5694, 0, 0, 0, 1, 1.98916, 1),
-            makeTransform(-45.0464, 5.15433, 9.7594, 0, 0, 0, 1, 1.98916, 1),
-            makeTransform(-45.0464, 3.2343, 22.5094, 0, 0, 0, 1, 1.16916, 1),
-            makeTransform(-45.0464, 7.32859, 48.0757, 0, 0, 0, 1, 2.08916, 1),
-            makeTransform(-45.0464, 4.59859, 58.7857, 0, 0, 0, 1, 2.08916, 1),
-            makeTransform(-45.0464, 4.59859, 75.2957, 0, 0, 0, 1, 2.08916, 1),
+            makeTransform(-25.0464, 6.37432, -46.1906, 0, 0, 0, 1, 2.08916 * sizeY_builds, 1), 
+            makeTransform(-25.0464, 3.64433, -35.4806, 0, 0, 0, 1, 2.08916 * sizeY_builds, 1),
+            makeTransform(-25.0464, 4.55433, -9.6006, 0, 0, 0, 1, 1.42916 * sizeY_builds, 1),
+            makeTransform(-25.0464, 4.1543, -0.890599, 0, 0, 0, 1, 1.16916 * sizeY_builds, 1),
+            makeTransform(-25.0464, 5.88433, 6.5694, 0, 0, 0, 1, 1.98916 * sizeY_builds, 1),
+            makeTransform(-25.0464, 5.15433, 9.7594, 0, 0, 0, 1, 1.98916 * sizeY_builds, 1),
+            makeTransform(-25.0464, 3.2343, 22.5094, 0, 0, 0, 1, 1.16916 * sizeY_builds, 1),
+            makeTransform(-25.0464, 7.32859, 48.0757, 0, 0, 0, 1, 2.08916 * sizeY_builds, 1),
+            makeTransform(-25.0464, 4.59859, 58.7857, 0, 0, 0, 1, 2.08916 * sizeY_builds, 1),
+            makeTransform(-25.0464, 4.59859, 75.2957, 0, 0, 0, 1, 2.08916 * sizeY_builds, 1),
 
-            makeTransform(44.0464, 6.37432, -46.1906, 0, 0, 0, 1, 2.08916, 1), 
-            makeTransform(44.0464, 3.64433, -35.4806, 0, 0, 0, 1, 2.08916, 1),
-            makeTransform(44.0464, 4.55433, -9.6006, 0, 0, 0, 1, 1.42916, 1),
-            makeTransform(44.0464, 4.1543, -0.890599, 0, 0, 0, 1, 1.16916, 1),
-            makeTransform(44.0464, 5.88433, 6.5694, 0, 0, 0, 1, 1.98916, 1),
-            makeTransform(44.0464, 5.15433, 9.7594, 0, 0, 0, 1, 1.98916, 1),
-            makeTransform(44.0464, 3.2343, 22.5094, 0, 0, 0, 1, 1.16916, 1),
-            makeTransform(44.0464, 7.32859, 48.0757, 0, 0, 0, 1, 2.08916, 1),
-            makeTransform(44.0464, 4.59859, 58.7857, 0, 0, 0, 1, 2.08916, 1),
-            makeTransform(44.0464, 4.59859, 75.2957, 0, 0, 0, 1, 2.08916, 1)
+            makeTransform(24.0464, 6.37432, -46.1906, 0, 0, 0, 1, 2.08916 * sizeY_builds, 1), 
+            makeTransform(24.0464, 3.64433, -35.4806, 0, 0, 0, 1, 2.08916 * sizeY_builds, 1),
+            makeTransform(24.0464, 4.55433, -9.6006, 0, 0, 0, 1, 1.42916 * sizeY_builds, 1),
+            makeTransform(24.0464, 4.1543, -0.890599, 0, 0, 0, 1, 1.16916 * sizeY_builds, 1),
+            makeTransform(24.0464, 5.88433, 6.5694, 0, 0, 0, 1, 1.98916 * sizeY_builds, 1),
+            makeTransform(24.0464, 5.15433, 9.7594, 0, 0, 0, 1, 1.98916 * sizeY_builds, 1),
+            makeTransform(24.0464, 3.2343, 22.5094, 0, 0, 0, 1, 1.16916 * sizeY_builds, 1),
+            makeTransform(24.0464, 7.32859, 48.0757, 0, 0, 0, 1, 2.08916 * sizeY_builds, 1),
+            makeTransform(24.0464, 4.59859, 58.7857, 0, 0, 0, 1, 2.08916 * sizeY_builds, 1),
+            makeTransform(24.0464, 4.59859, 75.2957, 0, 0, 0, 1, 2.08916 * sizeY_builds, 1)
         });
     }
 };

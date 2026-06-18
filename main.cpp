@@ -162,7 +162,7 @@ int main() {
 			aniBloq1 = -51.0f;
 		}
 		
-		aniBloq2 += speedAnimabloq1;
+		aniBloq2 += speedAnimabloq2;
 		if (aniBloq2 >= 85.0f) {
 			aniBloq2 = -51.0f;
 		}
