@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 project( Final_Project )
+=======
+project( ProyectoFinal-Grafica )
+>>>>>>> fix/triangulos-clean
 
 message( "Source of application:  ${CMAKE_SOURCE_DIR} " )
 message( "Subproject name:  ${PROJECT_NAME} " )

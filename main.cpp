@@ -92,7 +92,16 @@ int main() {
 
     float lastTime = static_cast<float>(glfwGetTime());
     const float carSpeed = 2.0f;
+<<<<<<< HEAD
 
+=======
+	float aniBloq1 = -51.0f;
+	float aniBloq2 = -51.0f;
+	float speedAnimabloq1 = 0.70f;
+	float speedAnimabloq2 = 0.30f;
+	bool hasLigths = false;
+	
+>>>>>>> fix/triangulos-clean
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
 
@@ -152,9 +161,32 @@ int main() {
 
         sky.draw(effects);
 
+<<<<<<< HEAD
         ciudad.setLayerOffsets(0.0f, 0.0f);
         ciudad.draw();
 
+=======
+		aniBloq1 += speedAnimabloq1;
+		if (aniBloq1 >= 85.0f) {
+			aniBloq1 = -51.0f;
+		}
+		
+		aniBloq2 += speedAnimabloq1;
+		if (aniBloq2 >= 85.0f) {
+			aniBloq2 = -51.0f;
+		}
+
+
+		ciudad.setLayerOffsets(aniBloq1, aniBloq2);
+		ciudad.draw();
+
+		if (aniBloq1 >= -50.0f) {
+			ciudad.setLayerOffsets(aniBloq1 - 136.0f, aniBloq2 -136.0f);
+			ciudad.draw(false);
+		}
+
+
+>>>>>>> fix/triangulos-clean
         if (porsche.loaded()) {
             porsche.draw();
         }
