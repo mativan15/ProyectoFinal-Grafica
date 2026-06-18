@@ -202,7 +202,19 @@ int main() {
     return 0;
 }
 
-void framebufferSizeCallback(GLFWwindow* window, int width, int height);
-static 
-float getFramebufferAspect(GLFWwindow* window);
-static 
+static void framebufferSizeCallback(GLFWwindow* window, int width, int height) {
+    (void)window;
+    glViewport(0, 0, width, height);
+}
+
+static float getFramebufferAspect(GLFWwindow* window) {
+    int width = 1;
+    int height = 1;
+
+    glfwGetFramebufferSize(window, &width, &height);
+
+    if (width <= 0) width = 1;
+    if (height <= 0) height = 1;
+
+    return static_cast<float>(width) / static_cast<float>(height);
+}
