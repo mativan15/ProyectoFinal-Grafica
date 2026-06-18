@@ -3,7 +3,7 @@
 
 // Included by draw2D.h after the shared Color, Shader, matrix, and uniform APIs.
 
-constexpr int MAX_LIGHTS = 8;
+constexpr int MAX_LIGHTS = 12;
 
 enum class LightType {
     Directional,
@@ -27,6 +27,10 @@ public:
     float shininess = 32.0f;
     float opacity = 1.0f;
 
+    // 0.0f = no recorta por transparencia.
+    // 0.03f - 0.10f = útil para hojas/ramas con textura RGBA.
+    float alphaCutoff = 0.0f;
+
     GLuint diffuseMap = 0;
 };
 
@@ -39,12 +43,10 @@ public:
     Color color {1.0f, 1.0f, 1.0f, 1.0f};
     float intensity = 1.0f;
 
-    // Maximum distance reached by point and spot lights.
     float range = 10.0f;
 
-    // Spot cutoffs are stored as cos(angle).
-    float innerCutoff = 0.976296f; // cos(12.5 deg)
-    float outerCutoff = 0.953717f; // cos(17.5 deg)
+    float innerCutoff = 0.976296f;
+    float outerCutoff = 0.953717f;
 };
 
 class LightingEffects {
@@ -101,19 +103,23 @@ inline void clearLights() {
 
 inline int addLight(const Light& light) {
     int& count = globalLightCount();
+
     if (count >= MAX_LIGHTS) {
         fprintf(stderr, "gl2d: maximum light count reached (%d)\n", MAX_LIGHTS);
         return -1;
     }
+
     Light copy = light;
     copy.enabled = true;
     globalLights()[static_cast<size_t>(count)] = copy;
     return count++;
 }
 
-inline int addDirectionalLight(LightVec3 direction,
-                               Color color = colors::White,
-                               float intensity = 1.0f) {
+inline int addDirectionalLight(
+    LightVec3 direction,
+    Color color = colors::White,
+    float intensity = 1.0f
+) {
     Light light{};
     light.type = LightType::Directional;
     light.direction = direction;
@@ -122,10 +128,12 @@ inline int addDirectionalLight(LightVec3 direction,
     return addLight(light);
 }
 
-inline int addPointLight(LightVec3 position,
-                         Color color = colors::White,
-                         float intensity = 1.0f,
-                         float range = 10.0f) {
+inline int addPointLight(
+    LightVec3 position,
+    Color color = colors::White,
+    float intensity = 1.0f,
+    float range = 10.0f
+) {
     Light light{};
     light.type = LightType::Point;
     light.position = position;
@@ -135,13 +143,15 @@ inline int addPointLight(LightVec3 position,
     return addLight(light);
 }
 
-inline int addSpotLight(LightVec3 position,
-                        LightVec3 direction,
-                        Color color = colors::White,
-                        float intensity = 1.0f,
-                        float innerDegrees = 12.5f,
-                        float outerDegrees = 17.5f,
-                        float range = 10.0f) {
+inline int addSpotLight(
+    LightVec3 position,
+    LightVec3 direction,
+    Color color = colors::White,
+    float intensity = 1.0f,
+    float innerDegrees = 12.5f,
+    float outerDegrees = 17.5f,
+    float range = 10.0f
+) {
     Light light{};
     light.type = LightType::Spot;
     light.position = position;
@@ -156,6 +166,7 @@ inline int addSpotLight(LightVec3 position,
 
 inline bool setLightEnabled(int index, bool enabled) {
     if (index < 0 || index >= globalLightCount()) return false;
+
     globalLights()[static_cast<size_t>(index)].enabled = enabled;
     return true;
 }
@@ -179,8 +190,10 @@ namespace Materials {
         return m;
     }
 
-    inline Material Glow(Color glow = {1.0f, 0.1f, 0.8f, 1.0f},
-                         float strength = 1.0f) {
+    inline Material Glow(
+        Color glow = {1.0f, 0.1f, 0.8f, 1.0f},
+        float strength = 1.0f
+    ) {
         Material m{};
         m.ambient = {0.0f, 0.0f, 0.0f, 1.0f};
         m.diffuse = {glow.r * 0.35f, glow.g * 0.35f, glow.b * 0.35f, glow.a};
@@ -211,7 +224,9 @@ namespace Materials {
 
 inline void setUniformVec3(const Shader& shader, const char* name, const LightVec3& value) {
     const GLint loc = glGetUniformLocation(shader.program(), name);
-    if (loc >= 0) glUniform3f(loc, value.x, value.y, value.z);
+    if (loc >= 0) {
+        glUniform3f(loc, value.x, value.y, value.z);
+    }
 }
 
 inline int glLightTypeValue(LightType type) {
@@ -220,6 +235,7 @@ inline int glLightTypeValue(LightType type) {
         case LightType::Point: return 1;
         case LightType::Spot: return 2;
     }
+
     return 0;
 }
 
@@ -249,7 +265,7 @@ inline Shader& defaultShaderLitBlinnPhong() {
 
     static const char* kFrag =
         "#version 330 core\n"
-        "const int MAX_LIGHTS = 8;\n"
+        "const int MAX_LIGHTS = 12;\n"
         "struct Light {\n"
         "    int type;\n"
         "    int enabled;\n"
@@ -261,21 +277,27 @@ inline Shader& defaultShaderLitBlinnPhong() {
         "    float innerCutoff;\n"
         "    float outerCutoff;\n"
         "};\n"
+
         "in vec4 vColor;\n"
         "in vec3 vFragPos;\n"
         "in vec3 vNormal;\n"
         "in vec2 vTexCoord;\n"
         "out vec4 FragColor;\n"
+
         "uniform vec4 uColor;\n"
         "uniform mat4 uView;\n"
+
         "uniform vec4 uMaterialAmbient;\n"
         "uniform vec4 uMaterialDiffuse;\n"
         "uniform vec4 uMaterialSpecular;\n"
         "uniform vec4 uMaterialEmissive;\n"
         "uniform float uMaterialShininess;\n"
         "uniform float uMaterialOpacity;\n"
+        "uniform float uAlphaCutoff;\n"
+
         "uniform int uLightCount;\n"
         "uniform Light uLights[MAX_LIGHTS];\n"
+
         "uniform vec4 uGlobalAmbient;\n"
         "uniform int uFogEnabled;\n"
         "uniform vec4 uFogColor;\n"
@@ -283,9 +305,11 @@ inline Shader& defaultShaderLitBlinnPhong() {
         "uniform float uFogEnd;\n"
         "uniform int uGammaCorrection;\n"
         "uniform float uGamma;\n"
+
         "uniform int uHasTexCoords;\n"
         "uniform int uHasDiffuseMap;\n"
         "uniform sampler2D uDiffuseMap;\n"
+
         "float attenuationFor(Light light, vec3 L) {\n"
         "    if (light.type == 0) return 1.0;\n"
         "    float d = length(light.position - vFragPos);\n"
@@ -298,36 +322,58 @@ inline Shader& defaultShaderLitBlinnPhong() {
         "    }\n"
         "    return atten;\n"
         "}\n"
+
         "void main() {\n"
         "    vec4 diffuseTex = (uHasTexCoords == 1 && uHasDiffuseMap == 1) ? texture(uDiffuseMap, vTexCoord) : vec4(1.0);\n"
+
+        "    if (uAlphaCutoff > 0.0 && uHasTexCoords == 1 && uHasDiffuseMap == 1 && diffuseTex.a < uAlphaCutoff) {\n"
+        "        discard;\n"
+        "    }\n"
+
         "    vec4 baseDiffuse = uColor * vColor * uMaterialDiffuse * diffuseTex;\n"
+
         "    vec3 N = normalize(vNormal);\n"
+        "    if (!gl_FrontFacing) {\n"
+        "        N = -N;\n"
+        "    }\n"
+
         "    vec3 cameraPos = vec3(inverse(uView)[3]);\n"
         "    vec3 V = normalize(cameraPos - vFragPos);\n"
+
         "    vec3 result = uGlobalAmbient.rgb * uMaterialAmbient.rgb * baseDiffuse.rgb;\n"
+
         "    for (int i = 0; i < MAX_LIGHTS; ++i) {\n"
         "        if (i >= uLightCount) break;\n"
+
         "        Light light = uLights[i];\n"
         "        if (light.enabled == 0) continue;\n"
+
         "        vec3 L = light.type == 0 ? normalize(-light.direction) : normalize(light.position - vFragPos);\n"
         "        vec3 H = normalize(L + V);\n"
+
         "        float diff = max(dot(N, L), 0.0);\n"
         "        float spec = diff > 0.0 ? pow(max(dot(N, H), 0.0), max(uMaterialShininess, 1.0)) : 0.0;\n"
         "        float atten = attenuationFor(light, L);\n"
         "        vec3 lightRgb = light.color.rgb * light.intensity * atten;\n"
+
         "        result += baseDiffuse.rgb * diff * lightRgb;\n"
         "        result += uMaterialSpecular.rgb * spec * lightRgb;\n"
         "    }\n"
+
         "    result += uMaterialEmissive.rgb;\n"
+
         "    float alpha = baseDiffuse.a * uMaterialOpacity;\n"
+
         "    if (uFogEnabled == 1) {\n"
         "        float dist = length((uView * vec4(vFragPos, 1.0)).xyz);\n"
         "        float fogT = clamp((uFogEnd - dist) / max(uFogEnd - uFogStart, 0.0001), 0.0, 1.0);\n"
         "        result = mix(uFogColor.rgb, result, fogT);\n"
         "    }\n"
+
         "    if (uGammaCorrection == 1) {\n"
         "        result = pow(max(result, vec3(0.0)), vec3(1.0 / max(uGamma, 0.0001)));\n"
         "    }\n"
+
         "    FragColor = vec4(result, alpha);\n"
         "}\n";
 
@@ -335,11 +381,13 @@ inline Shader& defaultShaderLitBlinnPhong() {
     return s;
 }
 
-inline void uploadLightingUniforms(const Shader& shader,
-                                   const Color& drawColor,
-                                   const Material& material,
-                                   const Mat4& model,
-                                   bool hasTexCoords) {
+inline void uploadLightingUniforms(
+    const Shader& shader,
+    const Color& drawColor,
+    const Material& material,
+    const Mat4& model,
+    bool hasTexCoords
+) {
     setUniformMat4(shader, "uProjection", globalProjectionMatrix());
     setUniformMat4(shader, "uView", globalViewMatrix());
     setUniformMat4(shader, "uModel", model);
@@ -351,8 +399,10 @@ inline void uploadLightingUniforms(const Shader& shader,
     setUniformColor(shader, "uMaterialEmissive", material.emissive);
     setUniform1f(shader, "uMaterialShininess", material.shininess);
     setUniform1f(shader, "uMaterialOpacity", material.opacity);
+    setUniform1f(shader, "uAlphaCutoff", material.alphaCutoff);
 
     const LightingEffects& fx = globalLightingEffects();
+
     setUniformColor(shader, "uGlobalAmbient", fx.globalAmbient);
     setUniform1i(shader, "uFogEnabled", fx.fogEnabled ? 1 : 0);
     setUniformColor(shader, "uFogColor", fx.fogColor);
@@ -365,10 +415,13 @@ inline void uploadLightingUniforms(const Shader& shader,
     setUniform1i(shader, "uHasDiffuseMap", material.diffuseMap != 0 ? 1 : 0);
 
     setUniform1i(shader, "uLightCount", globalLightCount());
+
     const array<Light, MAX_LIGHTS>& lights = globalLights();
+
     for (int i = 0; i < MAX_LIGHTS; ++i) {
         const Light& light = lights[static_cast<size_t>(i)];
         const string prefix = "uLights[" + to_string(i) + "].";
+
         setUniform1i(shader, (prefix + "type").c_str(), glLightTypeValue(light.type));
         setUniform1i(shader, (prefix + "enabled").c_str(), light.enabled ? 1 : 0);
         setUniformVec3(shader, (prefix + "position").c_str(), light.position);
