@@ -96,8 +96,11 @@ int main() {
 	float aniBloq2 = -51.0f;
 	float speedAnimabloq1 = 0.70f;
 	float speedAnimabloq2 = 0.30f;
+	float animationTime = 0.0f;
 	bool hasLigths = false;
-	
+	bool animationPaused = false;
+	bool spaceWasPressed = false;
+		
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
 
@@ -107,7 +110,17 @@ int main() {
 
         updateMouseCamera(window, camera);
         processInput(window, camera, deltaTime);
-        porsche.update(deltaTime, carSpeed);
+
+        const bool spacePressed = glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS;
+        if (spacePressed && !spaceWasPressed) {
+            animationPaused = !animationPaused;
+        }
+        spaceWasPressed = spacePressed;
+
+        if (!animationPaused) {
+            animationTime += deltaTime;
+            porsche.update(deltaTime, carSpeed);
+        }
 
         clearLights();
         LightingEffects effects{};
@@ -157,24 +170,26 @@ int main() {
 
         sky.draw(effects);
 
-		aniBloq1 += speedAnimabloq1;
-		if (aniBloq1 >= 85.0f) {
-			aniBloq1 = -51.0f;
-		}
-		
-		aniBloq2 += speedAnimabloq1;
-		if (aniBloq2 >= 85.0f) {
-			aniBloq2 = -51.0f;
+		if (!animationPaused) {
+			aniBloq1 += speedAnimabloq1;
+			if (aniBloq1 >= 85.0f) {
+				aniBloq1 = -51.0f;
+			}
+			
+			aniBloq2 += speedAnimabloq1;
+			if (aniBloq2 >= 85.0f) {
+				aniBloq2 = -51.0f;
+			}
 		}
 
 
-		ciudad.setLayerOffsets(aniBloq1, aniBloq2);
-		ciudad.draw();
+			ciudad.setLayerOffsets(aniBloq1, aniBloq2);
+			ciudad.draw(true, animationTime);
 
-		if (aniBloq1 >= -50.0f) {
-			ciudad.setLayerOffsets(aniBloq1 - 136.0f, aniBloq2 -136.0f);
-			ciudad.draw(false);
-		}
+			if (aniBloq1 >= -50.0f) {
+				ciudad.setLayerOffsets(aniBloq1 - 136.0f, aniBloq2 -136.0f);
+				ciudad.draw(false, animationTime);
+			}
 
 
         if (porsche.loaded()) {

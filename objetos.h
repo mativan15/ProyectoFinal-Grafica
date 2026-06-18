@@ -536,15 +536,84 @@ public:
 class TrafficLigthObjects : public RepeatedModel {
 public:
     explicit TrafficLigthObjects(const std::string& dir)
-        : RepeatedModel(dir + "traffic_ligth.obj") {
+        : RepeatedModel(dir + "traffic_ligth.obj"),
+          redLight(0.085f, 24, DrawPrim::Filled),
+          yellowLight(0.085f, 24, DrawPrim::Filled),
+          greenLight(0.085f, 24, DrawPrim::Filled) {
         Texture2D tex = loadTexture(dir + "Texture/traffic_ligth.png", true, false);
 
         if (tex.valid()) setMaterial(makeOpaqueMaterial(tex));
         else setMaterial(makeSimpleMaterial({0.18f, 0.18f, 0.17f, 1.0f}));
 
+        redLight.color = {1.0f, 0.02f, 0.02f, 1.0f};
+        yellowLight.color = {1.0f, 0.82f, 0.05f, 1.0f};
+        greenLight.color = {0.02f, 1.0f, 0.08f, 1.0f};
+
         setInstances({
             makeTransform(5.5f, -0.1f, 15.0f, 0, 0, 0, 1.3f, 1.3f, 1.0f)
         });
+    }
+
+    void draw(const Mat4& layerTransform = Mat4::identity(), float animationTime = 0.0f) {
+        RepeatedModel::draw(layerTransform);
+        drawSignalLights(layerTransform, animationTime);
+    }
+
+private:
+    enum class SignalState {
+        Green,
+        Yellow,
+        Red
+    };
+
+    Circle redLight;
+    Circle yellowLight;
+    Circle greenLight;
+
+    SignalState signalState(float animationTime) const {
+        float cycleTime = std::fmod(animationTime, 10.0f);
+        if (cycleTime < 0.0f) cycleTime += 10.0f;
+
+        if (cycleTime < 5.0f) return SignalState::Green;
+        if (cycleTime < 7.0f) return SignalState::Yellow;
+        return SignalState::Red;
+    }
+
+    Color inactiveColor(const Color& activeColor) const {
+        constexpr float kInactiveBrightness = 0.08f;
+        return {
+            activeColor.r * kInactiveBrightness,
+            activeColor.g * kInactiveBrightness,
+            activeColor.b * kInactiveBrightness,
+            activeColor.a
+        };
+    }
+
+    Mat4 lightTransform(float y) const {
+        return Mat4::translate3D(-3.61f, y, 0.202f);
+    }
+
+    void drawSignalLights(const Mat4& layerTransform, float animationTime) const {
+        const SignalState state = signalState(animationTime);
+        const Color redColor = state == SignalState::Red ? redLight.color : inactiveColor(redLight.color);
+        const Color yellowColor = state == SignalState::Yellow ? yellowLight.color : inactiveColor(yellowLight.color);
+        const Color greenColor = state == SignalState::Green ? greenLight.color : inactiveColor(greenLight.color);
+
+        GLboolean oldDepthMask = GL_TRUE;
+        glGetBooleanv(GL_DEPTH_WRITEMASK, &oldDepthMask);
+
+        glDepthMask(GL_FALSE);
+        enableAdditiveBlending();
+
+        for (const Mat4& instance : transforms()) {
+            const Mat4 world = layerTransform * instance;
+            redLight.draw(redColor, world * lightTransform(4.63f));
+            yellowLight.draw(yellowColor, world * lightTransform(4.35f));
+            greenLight.draw(greenColor, world * lightTransform(4.07f));
+        }
+
+        disableBlending();
+        glDepthMask(oldDepthMask);
     }
 };
 
@@ -904,7 +973,7 @@ public:
         capa_media.transform.matrix = Mat4::translate3D(0.0f, 0.0f, mediumZ);
     }
 
-    void draw(bool addLights = true) {
+    void draw(bool addLights = true, float trafficLightTime = 0.0f) {
         const Mat4 nearLayer = capa_cerca.transform.matrix;
         const Mat4 mediumLayer = capa_media.transform.matrix;
 
@@ -929,7 +998,7 @@ public:
         lowTowers.draw(nearLayer);
         lowConstructions.draw(nearLayer);
 
-		trafficLigth.draw(nearLayer);
+        trafficLigth.draw(nearLayer, trafficLightTime);
 
 
         windowLights.draw(
