@@ -572,7 +572,6 @@ private:
     SignalState signalState(float animationTime) const {
         float cycleTime = std::fmod(animationTime, 10.0f);
         if (cycleTime < 0.0f) cycleTime += 10.0f;
-
         if (cycleTime < 5.0f) return SignalState::Green;
         if (cycleTime < 7.0f) return SignalState::Yellow;
         return SignalState::Red;
@@ -972,7 +971,7 @@ public:
         capa_media.transform.matrix = Mat4::translate3D(0.0f, 0.0f, mediumZ);
     }
 
-    void draw(bool addLights = true, float trafficLightTime = 0.0f) {
+    void draw(bool addLights = true, float trafficLightTime = 0.0f, bool showSemaphore = true) {
         const Mat4 nearLayer = capa_cerca.transform.matrix;
         const Mat4 mediumLayer = capa_media.transform.matrix;
 
@@ -997,7 +996,7 @@ public:
         lowTowers.draw(nearLayer);
         lowConstructions.draw(nearLayer);
 
-        trafficLigth.draw(nearLayer, trafficLightTime);
+        if (showSemaphore) trafficLigth.draw(nearLayer, trafficLightTime);
 
 
         windowLights.draw(

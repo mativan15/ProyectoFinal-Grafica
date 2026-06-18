@@ -91,12 +91,13 @@ int main() {
     glfwSetWindowUserPointer(window, &camera.zoomFovDeg);
 
     float lastTime = static_cast<float>(glfwGetTime());
-    const float carSpeed = 2.0f;
+    const float normalCarSpeed   = 2.0f;
+	const float maxSpeed1 = 136.0f / 6.0f;
+	const float maxSpeed2 = maxSpeed1 * (3.0f / 7.0f);
 	float aniBloq1 = -51.0f;
 	float aniBloq2 = -51.0f;
-	float speedAnimabloq1 = 0.70f;
-	float speedAnimabloq2 = 0.30f;
-	float animationTime = 0.0f;
+	float speedMultiplier = 1.0f;
+	float animationTime   = 0.0f;
 	bool hasLigths = false;
 	bool animationPaused = false;
 	bool spaceWasPressed = false;
@@ -119,7 +120,23 @@ int main() {
 
         if (!animationPaused) {
             animationTime += deltaTime;
-            porsche.update(deltaTime, carSpeed);
+            float cycleTime = std::fmod(animationTime, 10.0f);
+
+            // Semaforo en z=15: world_Z = aniBloq1-15, camara en Z=12
+            // distancia = 12-(aniBloq1-15) = 27-aniBloq1
+            bool  lightIsGreen      = (cycleTime < 5.0f);
+            float trafficLightAhead = 27.0f - aniBloq1;
+
+            bool shouldBrake = !lightIsGreen
+                             && (trafficLightAhead > 0.0f)
+                             && (trafficLightAhead < 15.0f);
+
+            float targetMultiplier = shouldBrake ? 0.0f : 1.0f;
+            float lerpRate = (targetMultiplier > speedMultiplier) ? 1.5f : 4.5f;
+            speedMultiplier += (targetMultiplier - speedMultiplier) * lerpRate * deltaTime;
+            speedMultiplier = std::max(0.0f, std::min(1.0f, speedMultiplier));
+
+            porsche.update(deltaTime, normalCarSpeed * speedMultiplier);
         }
 
         clearLights();
@@ -171,24 +188,18 @@ int main() {
         sky.draw(effects);
 
 		if (!animationPaused) {
-			aniBloq1 += speedAnimabloq1;
-			if (aniBloq1 >= 85.0f) {
-				aniBloq1 = -51.0f;
-			}
-			
-			aniBloq2 += speedAnimabloq2;
-			if (aniBloq2 >= 85.0f) {
-				aniBloq2 = -51.0f;
-			}
+			aniBloq1 += maxSpeed1 * speedMultiplier * deltaTime;
+			if (aniBloq1 >= 85.0f) aniBloq1 = -51.0f;
+			aniBloq2 += maxSpeed2 * speedMultiplier * deltaTime;
+			if (aniBloq2 >= 85.0f) aniBloq2 = -51.0f;
 		}
 
-
 			ciudad.setLayerOffsets(aniBloq1, aniBloq2);
-			ciudad.draw(true, animationTime);
+			ciudad.draw(true, animationTime, true);
 
 			if (aniBloq1 >= -50.0f) {
-				ciudad.setLayerOffsets(aniBloq1 - 136.0f, aniBloq2 -136.0f);
-				ciudad.draw(false, animationTime);
+				ciudad.setLayerOffsets(aniBloq1 - 136.0f, aniBloq2 - 136.0f);
+				ciudad.draw(false, animationTime, false);
 			}
 
 
